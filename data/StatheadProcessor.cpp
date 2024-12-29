@@ -6,7 +6,11 @@
 #include <unordered_map>
 #include <filesystem>
 #include <algorithm>
+#include <iomanip>
 
+
+// do not generate training data for a year until this many games played
+const int buffer_games = 400;
 
 struct DataRow{
     // game metadata
@@ -30,11 +34,22 @@ struct DataRow{
     int awayPts;
 };
 
+struct cumuStats{
+    int wins = 0;
+    int losses = 0;
+    int totPointDiff = 0;
+    int totFT = 0;
+    int tot2pt = 0;
+    int tot3pt = 0;
+    int totDef2ptPct = 0;
+    int totDef3ptPct = 0;
+};
+
 bool compareDataRowByDateAsc(const DataRow* a, const DataRow* b) {
     return a->date < b->date;
 }
 
-void processSeasonStats(const std::string& filePath, std::vector<DataRow*>& seasonData, std::unordered_map<std::string, int>& teamIndex) {
+void cleanSeasonStats(const std::string& filePath, std::vector<DataRow*>& seasonData, std::unordered_map<std::string, int>& teamIndex) {
     std::ifstream file(filePath);
     if(!file.is_open()){
         std::cerr << "Error: Could not open file " << filePath << std::endl;
@@ -114,32 +129,65 @@ void processSeasonStats(const std::string& filePath, std::vector<DataRow*>& seas
     file.close();
 }
 
-void writeProcessedData(const std::vector<DataRow*>& seasonData, const std::string& outputFilePath){
-    std::ofstream outFile(outputFilePath);
+void generateProcessedData(const std::vector<DataRow*>& seasonData, const std::string& outputFilePath){
+    std::ofstream outFile(outputFilePath, std::ios::app); // write all processed data in one file
     if(!outFile.is_open()){
         std::cerr << "Error: Could not open file for writing: " << outputFilePath << std::endl;
         return;
     }
 
-    // Header
-    outFile << "Home,Away,Date,Won, ,";
-    outFile << "PointDiff,FTDiff,Home2pt,Away2pt,Home3pt,Away3pt,Def2pt,OppDef2pt,Def3pt,OppDef3pt\n";
+    int processed_games = 0;
 
-    // Write each row of processed data
+    // Process and write data if past buffer
+    std::vector<cumuStats*> teamStats(30);
+    for(int i = 0; i < 30; i++){
+        teamStats[i] = new cumuStats{};
+    }
     for(const auto& row : seasonData){
-        outFile << row->homeTeam << "," << row->awayTeam << "," << row->date << "," << row->result << ", ,"; 
-        int pointDiff = row->homePts - row->awayPts;
-        int ftDiff = row->homeFT - row->awayFT;
-        int home2pt = row->home2pt;
-        int away2pt = row->away2pt;
-        int home3pt = row->home3pt;
-        int away3pt = row->away3pt;
-        int def2pt = row->homeDefended2ptPct;
-        int oppDef2pt = row->awayDefended2ptPct;
-        int def3pt = row->homeDefended3ptPct;
-        int oppDef3pt = row->awayDefended3ptPct;
-        outFile << pointDiff << "," << ftDiff << "," << home2pt << "," << away2pt << "," << home3pt << "," << away3pt
-                << "," << def2pt << "," << oppDef2pt << "," << def3pt << "," << oppDef3pt << "\n";
+        processed_games++;
+        int home = row->homeTeam;
+        int away = row->awayTeam;
+        int homePlayed = teamStats[home]->wins + teamStats[home]->losses;
+        int awayPlayed = teamStats[away]->wins + teamStats[away]->losses;
+        // Process game result if applicable
+        if(processed_games > buffer_games){
+            int won = row->result;
+            int homeCourt = 1;
+            double homePointDiff = double(teamStats[home]->totPointDiff) / double(homePlayed);
+            double awayPointDiff = double(teamStats[away]->totPointDiff) / double(awayPlayed);
+            double homeFT = double(teamStats[home]->totFT)/double(homePlayed);
+            double awayFT = double(teamStats[away]->totFT)/double(awayPlayed);
+            double home2pt = double(teamStats[home]->tot2pt) / double(homePlayed);
+            double home3pt = double(teamStats[home]->tot3pt) / double(homePlayed);
+            double def2pt = double(teamStats[home]->totDef2ptPct) / double(homePlayed);
+            double def3pt = double(teamStats[home]->totDef3ptPct) / double(homePlayed);        
+            double away2pt = double(teamStats[away]->tot2pt) / double(awayPlayed);
+            double away3pt = double(teamStats[away]->tot3pt) / double(awayPlayed);
+            double awayDef2pt = double(teamStats[away]->totDef2ptPct) / double(awayPlayed);
+            double awayDef3pt = double(teamStats[away]->totDef3ptPct) / double(awayPlayed);
+            // Output data
+            outFile << std::fixed << std::setprecision(0) 
+            << won << "," << homeCourt << "," << homePointDiff << "," << homeFT << "," << home2pt << ","
+            << home3pt << "," << def2pt << "," << def3pt << ","
+            << awayPointDiff << "," << awayFT << "," << away2pt << "," << away3pt << "," << awayDef2pt << "," << awayDef3pt << "\n";
+        }
+        // Update cumulative stats
+        teamStats[home]->wins += row->result;
+        teamStats[home]->losses += !row->result;
+        teamStats[away]->wins += !row->result;
+        teamStats[away]->losses += row->result;
+        teamStats[home]->totPointDiff += row->homePts - row->awayPts;
+        teamStats[home]->totFT += row->homeFT;
+        teamStats[home]->tot2pt += row->home2pt;
+        teamStats[home]->tot3pt += row->home3pt;
+        teamStats[home]->totDef2ptPct += row->homeDefended2ptPct;
+        teamStats[home]->totDef3ptPct += row->homeDefended3ptPct;
+        teamStats[away]->totPointDiff += row->awayPts - row->homePts;
+        teamStats[away]->totFT += row->awayFT;
+        teamStats[away]->tot2pt += row->away2pt;
+        teamStats[away]->tot3pt += row->away3pt;
+        teamStats[away]->totDef2ptPct += row->awayDefended2ptPct;
+        teamStats[away]->totDef3ptPct += row->awayDefended3ptPct;
     }
     outFile.close();
 }
@@ -154,19 +202,23 @@ int main() {
     for (int i = 0; i < teams.size(); i++){
         teamIndex[teams[i]] = i;
     }
-
+    
+    // clear existing data and output header
+    std::string processedPath = "./processed/all_processed_data.csv";
+    std::ofstream outFile(processedPath, std::ios::trunc);
+    // Header
+    outFile << "Won,HomeCourt,HomePointDiff,HomeFT,Home2pt,Home3pt,Def2pt,Def3pt,";
+    outFile << "AwayPointDiff,AwayFT,Away2pt,Away3pt,OppDef2pt,OppDef3pt\n";
+    outFile.close();
     // read all data files in stathead folder    
     std::string rawStatheadFolder = "./raw/stathead";
-    std::string processedFolder = "./processed";
     for(const auto& seasonStats : std::filesystem::directory_iterator(rawStatheadFolder)){
         if(seasonStats.is_regular_file() && seasonStats.path().extension() == ".csv"){
             // process season by season
             std::vector<DataRow*> seasonData;
-            processSeasonStats(seasonStats.path().string(), seasonData, teamIndex);
+            cleanSeasonStats(seasonStats.path().string(), seasonData, teamIndex);
             // then write processed data out
-            std::string baseName = seasonStats.path().stem().string();
-            std::string outputFilePath = processedFolder + "/" + baseName + "_processed.csv";
-            writeProcessedData(seasonData, outputFilePath);
+            generateProcessedData(seasonData, processedPath);
         }
     }
     return 0;
