@@ -46,19 +46,17 @@ def process_and_train(file_path):
     # print(f"Model Evaluation -> Loss: {loss}, Accuracy: {accuracy}")
 
 
-    # TEST
+    # TEST FNN
     ann = models.Sequential()
     ann.add(layers.InputLayer(shape=(X_train.shape[1],)))
-    ann.add(layers.Dense(units=32, activation="relu"))
-    ann.add(layers.Dense(units=32, activation="relu"))
     ann.add(layers.Dense(units=16, activation="relu"))
+    ann.add(layers.Dense(units=8, activation="relu"))
     ann.add(layers.Dense(units=1, activation="sigmoid"))
 
     optimizer = optimizers.Adam(learning_rate=0.001, clipvalue=1.0)
     ann.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
-    ann.fit(X_train, y_train, batch_size=32, epochs=25)
+    ann.fit(X_train, y_train, batch_size=32, epochs=15)
 
-    
     loss, accuracy = ann.evaluate(X_test, y_test)
     print(f"Model Evaluation on Test -> Loss: {loss}, Accuracy: {accuracy}")
 

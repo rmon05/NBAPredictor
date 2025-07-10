@@ -1,0 +1,4 @@
+Games: https://stathead.com/basketball/team-game-finder.cgi?request=1&team_game_max=84&home_away_neutral=h&comp_id=NBA&year_max=2025&team_game_min=1&match=team_game&order_by=pts&comp_type=reg&timeframe=seasons&year_min=2025
+Players: https://stathead.com/basketball/player-game-finder.cgi?request=1&match=player_game_combined_season&order_by_asc=1&order_by=mp&timeframe=seasons&year_min=2025&year_max=2025
+Teams: https://stathead.com/basketball/team-season-finder.cgi
+Box Scores: https://stathead.com/basketball/player-game-finder.cgi?request=1&order_by_asc=1&order_by=mp&timeframe=seasons&year_min=2025&year_max=2025
