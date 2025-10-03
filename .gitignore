@@ -1,7 +1,5 @@
-TODO.txt
-temp.cpp
 .env
 
-scratch/
+legacy/
 venv/
 __pycache__/
