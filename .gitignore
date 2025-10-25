@@ -2,4 +2,5 @@
 
 legacy/
 venv/
+data/
 __pycache__/
