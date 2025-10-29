@@ -97,11 +97,10 @@ def roll_year(year: int):
             away_played = team_stats[away]["W"]+team_stats[away]["L"]
 
             home_datapoint["Home"] = 1
+            home_datapoint["Result"] = row["PTS"]-row["PTS.1"]
             # home_datapoint["Team1"] = home
-            home_datapoint["W1"] = team_stats[home]["W"]
-            home_datapoint["L1"] = team_stats[home]["L"]
-            home_datapoint["LocationW1"] = team_stats[home]["HomeW"]
-            home_datapoint["LocationL1"] = team_stats[home]["HomeL"]
+            home_datapoint["WinPct1"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
+            home_datapoint["LocationWinPct1"] = team_stats[home]["HomeW"]/(team_stats[home]["HomeW"]+team_stats[home]["HomeL"])
             home_datapoint["PTS1"] = team_stats[home]["PTS"]/home_played
             home_datapoint["FG1"] = team_stats[home]["FG"]/home_played
             home_datapoint["FGA1"] = team_stats[home]["FGA"]/home_played
@@ -111,7 +110,7 @@ def roll_year(year: int):
             home_datapoint["3PA1"] = team_stats[home]["3PA"]/home_played
             home_datapoint["FT1"] = team_stats[home]["FT"]/home_played
             home_datapoint["FTA1"] = team_stats[home]["FTA"]/home_played
-            home_datapoint["PTSDiffTot1"] = team_stats[home]["PTSDiffTot"]/home_played
+            home_datapoint["PTSDiff1"] = team_stats[home]["PTSDiffTot"]/home_played
             home_datapoint["Streak1"] = team_stats[home]["Streak"]
             home_datapoint["AST1"] = team_stats[home]["AST"]/home_played
             home_datapoint["ORB1"] = team_stats[home]["ORB"]/home_played
@@ -120,8 +119,8 @@ def roll_year(year: int):
             home_datapoint["BLK1"] = team_stats[home]["BLK"]/home_played
             home_datapoint["TOV1"] = team_stats[home]["TOV"]/home_played
             # home_datapoint["Team2"] = away
-            home_datapoint["LocationW2"] = team_stats[away]["AwayW"]
-            home_datapoint["LocationL2"] = team_stats[away]["AwayL"]
+            home_datapoint["WinPct2"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
+            home_datapoint["LocationWinPct2"] = team_stats[away]["AwayW"]/(team_stats[away]["AwayW"]+team_stats[away]["AwayL"])
             home_datapoint["PTS2"] = team_stats[away]["PTS"]/away_played
             home_datapoint["FG2"] = team_stats[away]["FG"]/away_played
             home_datapoint["FGA2"] = team_stats[away]["FGA"]/away_played
@@ -131,7 +130,7 @@ def roll_year(year: int):
             home_datapoint["3PA2"] = team_stats[away]["3PA"]/away_played
             home_datapoint["FT2"] = team_stats[away]["FT"]/away_played
             home_datapoint["FTA2"] = team_stats[away]["FTA"]/away_played
-            home_datapoint["PTSDiffTot2"] = team_stats[away]["PTSDiffTot"]/away_played
+            home_datapoint["PTSDiff2"] = team_stats[away]["PTSDiffTot"]/away_played
             home_datapoint["Streak2"] = team_stats[away]["Streak"]
             home_datapoint["AST2"] = team_stats[away]["AST"]/away_played
             home_datapoint["ORB2"] = team_stats[away]["ORB"]/away_played
@@ -142,11 +141,10 @@ def roll_year(year: int):
 
 
             away_datapoint["Home"] = 0
+            away_datapoint["Result"] = row["PTS.1"]-row["PTS"]
             # away_datapoint["Team1"] = away
-            away_datapoint["W1"] = team_stats[away]["W"]
-            away_datapoint["L1"] = team_stats[away]["L"]
-            away_datapoint["LocationW1"] = team_stats[away]["AwayW"]
-            away_datapoint["LocationL1"] = team_stats[away]["AwayL"]
+            away_datapoint["WinPct1"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
+            away_datapoint["LocationWinPct1"] = team_stats[away]["AwayW"]/(team_stats[away]["AwayW"]+team_stats[away]["AwayL"])
             away_datapoint["PTS1"] = team_stats[away]["PTS"]/away_played
             away_datapoint["FG1"] = team_stats[away]["FG"]/away_played
             away_datapoint["FGA1"] = team_stats[away]["FGA"]/away_played
@@ -156,7 +154,7 @@ def roll_year(year: int):
             away_datapoint["3PA1"] = team_stats[away]["3PA"]/away_played
             away_datapoint["FT1"] = team_stats[away]["FT"]/away_played
             away_datapoint["FTA1"] = team_stats[away]["FTA"]/away_played
-            away_datapoint["PTSDiffTot1"] = team_stats[away]["PTSDiffTot"]/away_played
+            away_datapoint["PTSDiff1"] = team_stats[away]["PTSDiffTot"]/away_played
             away_datapoint["Streak1"] = team_stats[away]["Streak"]
             away_datapoint["AST1"] = team_stats[away]["AST"]/away_played
             away_datapoint["ORB1"] = team_stats[away]["ORB"]/away_played
@@ -165,10 +163,8 @@ def roll_year(year: int):
             away_datapoint["BLK1"] = team_stats[away]["BLK"]/away_played
             away_datapoint["TOV1"] = team_stats[away]["TOV"]/away_played
             # away_datapoint["Team2"] = home
-            away_datapoint["W2"] = team_stats[home]["W"]
-            away_datapoint["L2"] = team_stats[home]["L"]
-            away_datapoint["LocationW2"] = team_stats[home]["HomeW"]
-            away_datapoint["LocationL2"] = team_stats[home]["HomeL"]
+            away_datapoint["WinPct2"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
+            away_datapoint["LocationWinPct2"] = team_stats[home]["HomeW"]/(team_stats[home]["HomeW"]+team_stats[home]["HomeL"])
             away_datapoint["PTS2"] = team_stats[home]["PTS"]/home_played
             away_datapoint["FG2"] = team_stats[home]["FG"]/home_played
             away_datapoint["FGA2"] = team_stats[home]["FGA"]/home_played
@@ -178,7 +174,7 @@ def roll_year(year: int):
             away_datapoint["3PA2"] = team_stats[home]["3PA"]/home_played
             away_datapoint["FT2"] = team_stats[home]["FT"]/home_played
             away_datapoint["FTA2"] = team_stats[home]["FTA"]/home_played
-            away_datapoint["PTSDiffTot2"] = team_stats[home]["PTSDiffTot"]/home_played
+            away_datapoint["PTSDiff2"] = team_stats[home]["PTSDiffTot"]/home_played
             away_datapoint["Streak2"] = team_stats[home]["Streak"]
             away_datapoint["AST2"] = team_stats[home]["AST"]/home_played
             away_datapoint["ORB2"] = team_stats[home]["ORB"]/home_played
@@ -250,40 +246,6 @@ def roll_year(year: int):
             team_stats[away]["TOV"] += player["TOV"]
 
     # Write out
-    df_out["PTS1"] = df_out["PTS1"].round(3)
-    df_out["FG1"] = df_out["FG1"].round(3)
-    df_out["FGA1"] = df_out["FGA1"].round(3)
-    df_out["2P1"] = df_out["2P1"].round(3)
-    df_out["2PA1"] = df_out["2PA1"].round(3)
-    df_out["3P1"] = df_out["3P1"].round(3)
-    df_out["3PA1"] = df_out["3PA1"].round(3)
-    df_out["FT1"] = df_out["FT1"].round(3)
-    df_out["FTA1"] = df_out["FTA1"].round(3)
-    df_out["PTSDiffTot1"] = df_out["PTSDiffTot1"].round(3)
-    df_out["AST1"] = df_out["AST1"].round(3)
-    df_out["ORB1"] = df_out["ORB1"].round(3)
-    df_out["DRB1"] = df_out["DRB1"].round(3)
-    df_out["STL1"] = df_out["STL1"].round(3)
-    df_out["BLK1"] = df_out["BLK1"].round(3)
-    df_out["TOV1"] = df_out["TOV1"].round(3)
-
-    df_out["PTS2"] = df_out["PTS2"].round(3)
-    df_out["FG2"] = df_out["FG2"].round(3)
-    df_out["FGA2"] = df_out["FGA2"].round(3)
-    df_out["2P2"] = df_out["2P2"].round(3)
-    df_out["2PA2"] = df_out["2PA2"].round(3)
-    df_out["3P2"] = df_out["3P2"].round(3)
-    df_out["3PA2"] = df_out["3PA2"].round(3)
-    df_out["FT2"] = df_out["FT2"].round(3)
-    df_out["FTA2"] = df_out["FTA2"].round(3)
-    df_out["PTSDiffTot2"] = df_out["PTSDiffTot2"].round(3)
-    df_out["AST2"] = df_out["AST2"].round(3)
-    df_out["ORB2"] = df_out["ORB2"].round(3)
-    df_out["DRB2"] = df_out["DRB2"].round(3)
-    df_out["STL2"] = df_out["STL2"].round(3)
-    df_out["BLK2"] = df_out["BLK2"].round(3)
-    df_out["TOV2"] = df_out["TOV2"].round(3)
-
     if not os.path.exists(output_path_csv) or year==init_year:
         df_out.to_csv(output_path_csv, mode='w', header=True, index=False)
     else:
@@ -296,14 +258,8 @@ def main():
     years = [year for year in range(2015, 2026)]
     total_start = time.time()
 
-    with ProcessPoolExecutor() as executor:
-        futures = [executor.submit(roll_year, year) for year in years]
-
-        for f in as_completed(futures):
-            try:
-                f.result()
-            except Exception as e:
-                print(f"Error processing year: {e}")
+    for year in years:
+        roll_year(year)
 
     total_end = time.time()
     print(f"All years processed in {total_end - total_start:.2f}s")
@@ -311,6 +267,8 @@ def main():
     # copy csv to parquet
     df_all = pd.read_csv(output_path_csv)
     df_all.to_parquet(output_path_parquet)
+
+    # shuffle rows
 
 if __name__ == "__main__":
     main()

@@ -28,7 +28,9 @@ def ingest_year(year: int):
         
         # Duplicate column
         if csv_file == "gamesRaw.csv" and "PTS.2" in df.columns:
+            df['PTS'], df['PTS.2'] = df['PTS.2'], df['PTS']
             df = df.drop(columns=["PTS.2"]) 
+            print(f"Replaced PTS with PTS.2 for {csv_path}")
         
         parquet_path = year_processed_path / f"{csv_file.replace('.csv', '.parquet')}"
 
