@@ -11,3 +11,5 @@ apache-airflow-providers-standard
 matplotlib>=3.9,<4.0
 pathlib==1.0.1
 torch==2.9.0 
+
+openai==2.6.1
