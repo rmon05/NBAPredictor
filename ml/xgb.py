@@ -18,7 +18,7 @@ def compute_baseline_mse(y_train, y_test):
     baseline_mse = mean_squared_error(y_test, y_pred_baseline)
     return baseline_mse
 
-def kfold_cross_testidation(k=5, epochs=50, batch_size=64, lr=0.001):
+def kfold_cross_validation(k=5, epochs=50, batch_size=64, lr=0.001):
     df = pd.read_parquet(input_path_parquet)
 
     # Separate X and y
@@ -85,7 +85,7 @@ def kfold_cross_testidation(k=5, epochs=50, batch_size=64, lr=0.001):
 if __name__ == "__main__":
     total_start = time.time()
 
-    kfold_cross_testidation(k=5, epochs=50)
+    kfold_cross_validation(k=5, epochs=50)
 
     total_end = time.time()
     print(f"Completed in {total_end - total_start:.2f}s")
