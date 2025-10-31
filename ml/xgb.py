@@ -18,7 +18,7 @@ def compute_baseline_mse(y_train, y_test):
     baseline_mse = mean_squared_error(y_test, y_pred_baseline)
     return baseline_mse
 
-def kfold_cross_validation(k=5, epochs=50, batch_size=64, lr=0.001):
+def kfold_cross_validation(k=5):
     df = pd.read_parquet(input_path_parquet)
 
     # Separate X and y
@@ -36,9 +36,20 @@ def kfold_cross_validation(k=5, epochs=50, batch_size=64, lr=0.001):
         X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
         home_train, home_test = X_train["Home"], X_test["Home"]
-        # X_train = X_train.drop(columns=["Home"])
-        # X_test = X_test.drop(columns=["Home"])
         X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled = normalize(X_train, X_test, y_train, y_test, home_train, home_test)
+
+
+        # Try smaller inputs
+        cols = ["Home", "WinPct1", "WinPct2", "PTSDiff1", "PTSDiff2", 
+                "Streak1", "Streak2"
+                ]
+        for i in range(5):
+            cols.append(f"Starter{i}_BPM1")
+            cols.append(f"Starter{i}_BPM2")
+            
+        X_train_scaled = X_train_scaled.loc[:, cols]
+        X_test_scaled = X_test_scaled.loc[:, cols]
+
 
         # Compute baseline
         baseline_mse = compute_baseline_mse(y_train_scaled, y_test_scaled)
@@ -85,7 +96,7 @@ def kfold_cross_validation(k=5, epochs=50, batch_size=64, lr=0.001):
 if __name__ == "__main__":
     total_start = time.time()
 
-    kfold_cross_validation(k=5, epochs=50)
+    kfold_cross_validation(k=5)
 
     total_end = time.time()
     print(f"Completed in {total_end - total_start:.2f}s")

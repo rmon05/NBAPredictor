@@ -58,6 +58,17 @@ def kfold_cross_validation(k=5, epochs=50, batch_size=64, lr=0.001):
         home_train, home_test = X_train["Home"], X_test["Home"]
         X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled = normalize(X_train, X_test, y_train, y_test, home_train, home_test)
 
+        # Try smaller inputs
+        cols = ["Home", "WinPct1", "WinPct2", "PTSDiff1", "PTSDiff2", 
+                "Streak1", "Streak2"
+                ]
+        for i in range(5):
+            cols.append(f"Starter{i}_BPM1")
+            cols.append(f"Starter{i}_BPM2")
+            
+        X_train_scaled = X_train_scaled.loc[:, cols]
+        X_test_scaled = X_test_scaled.loc[:, cols]
+
         # Compute baseline
         baseline_mse = compute_baseline_mse(y_train_scaled, y_test_scaled)
         print(f"Baseline MSE (predicting mean outcome): {baseline_mse:.4f}")
@@ -75,7 +86,7 @@ def kfold_cross_validation(k=5, epochs=50, batch_size=64, lr=0.001):
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
         # Init model
-        model = FNN(input_size=X_train.shape[1])
+        model = FNN(input_size=X_train_scaled.shape[1])
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
 
