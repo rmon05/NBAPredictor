@@ -89,5 +89,6 @@
         "valarray": "cpp",
         "variant": "cpp",
         "xtree": "cpp"
-    }
+    },
+    "files.saveConflictResolution": "overwriteFileOnDisk"
 }

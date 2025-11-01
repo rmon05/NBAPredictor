@@ -3,7 +3,6 @@ from pathlib import Path
 import time
 import os
 import json
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # min games before writing data
 DATA_THRESHOLD = 30
@@ -26,8 +25,9 @@ def roll_year(year: int):
     df_games["HomeBoxScores"] = df_games["HomeBoxScores"].apply(json.loads)
     df_games["AwayBoxScores"] = df_games["AwayBoxScores"].apply(json.loads)
 
-    # Initialize team stats
+    # Initialize team stats & player stats
     team_stats = {}
+    player_stats = {}
     for _, row in df_games.iterrows():
         home = row["Home"]
         away = row["Opp"]
@@ -118,6 +118,15 @@ def roll_year(year: int):
             home_datapoint["STL1"] = team_stats[home]["STL"]/home_played
             home_datapoint["BLK1"] = team_stats[home]["BLK"]/home_played
             home_datapoint["TOV1"] = team_stats[home]["TOV"]/home_played
+            # Assume 5 highest minute players are the starters
+            for i in range(5):
+                player = home_box_scores[i]
+                pid = player["Player-additional"]
+                if pid in player_stats:
+                    home_datapoint[f"Starter{i}_BPM1"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
+                else:
+                    home_datapoint[f"Starter{i}_BPM1"] = 0
+
             # home_datapoint["Team2"] = away
             home_datapoint["WinPct2"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
             home_datapoint["LocationWinPct2"] = team_stats[away]["AwayW"]/(team_stats[away]["AwayW"]+team_stats[away]["AwayL"])
@@ -138,6 +147,14 @@ def roll_year(year: int):
             home_datapoint["STL2"] = team_stats[away]["STL"]/away_played
             home_datapoint["BLK2"] = team_stats[away]["BLK"]/away_played
             home_datapoint["TOV2"] = team_stats[away]["TOV"]/away_played
+            # Assume 5 highest minute players are the starters
+            for i in range(5):
+                player = away_box_scores[i]
+                pid = player["Player-additional"]
+                if pid in player_stats:
+                    home_datapoint[f"Starter{i}_BPM2"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
+                else:
+                    home_datapoint[f"Starter{i}_BPM2"] = 0
 
 
             away_datapoint["Home"] = 0
@@ -162,6 +179,15 @@ def roll_year(year: int):
             away_datapoint["STL1"] = team_stats[away]["STL"]/away_played
             away_datapoint["BLK1"] = team_stats[away]["BLK"]/away_played
             away_datapoint["TOV1"] = team_stats[away]["TOV"]/away_played
+            # Assume 5 highest minute players are the starters
+            for i in range(5):
+                player = away_box_scores[i]
+                pid = player["Player-additional"]
+                if pid in player_stats:
+                    away_datapoint[f"Starter{i}_BPM1"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
+                else:
+                    away_datapoint[f"Starter{i}_BPM1"] = 0
+
             # away_datapoint["Team2"] = home
             away_datapoint["WinPct2"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
             away_datapoint["LocationWinPct2"] = team_stats[home]["HomeW"]/(team_stats[home]["HomeW"]+team_stats[home]["HomeL"])
@@ -182,6 +208,14 @@ def roll_year(year: int):
             away_datapoint["STL2"] = team_stats[home]["STL"]/home_played
             away_datapoint["BLK2"] = team_stats[home]["BLK"]/home_played
             away_datapoint["TOV2"] = team_stats[home]["TOV"]/home_played
+            # Assume 5 highest minute players are the starters
+            for i in range(5):
+                player = home_box_scores[i]
+                pid = player["Player-additional"]
+                if pid in player_stats:
+                    away_datapoint[f"Starter{i}_BPM2"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
+                else:
+                    away_datapoint[f"Starter{i}_BPM2"] = 0
             
             df_out = pd.concat([df_out, pd.DataFrame([home_datapoint])], ignore_index=True)
             df_out = pd.concat([df_out, pd.DataFrame([away_datapoint])], ignore_index=True)
@@ -230,6 +264,15 @@ def roll_year(year: int):
 
         # Box score stats
         for player in home_box_scores:
+            pid = player["Player-additional"]
+            if not (pid in player_stats):
+                player_stats[pid] = {}
+                player_stats[pid]["GamesPlayed"] = 0
+                player_stats[pid]["TotBPM"] = 0
+
+            player_stats[pid]["GamesPlayed"] += 1
+            player_stats[pid]["TotBPM"] += player["BPM"]
+
             team_stats[home]["AST"] += player["AST"]
             team_stats[home]["ORB"] += player["ORB"]
             team_stats[home]["DRB"] += player["DRB"]
@@ -238,6 +281,15 @@ def roll_year(year: int):
             team_stats[home]["TOV"] += player["TOV"]
         
         for player in away_box_scores:
+            pid = player["Player-additional"]
+            if not (pid in player_stats):
+                player_stats[pid] = {}
+                player_stats[pid]["GamesPlayed"] = 0
+                player_stats[pid]["TotBPM"] = 0
+            
+            player_stats[pid]["GamesPlayed"] += 1
+            player_stats[pid]["TotBPM"] += player["BPM"]
+
             team_stats[away]["AST"] += player["AST"]
             team_stats[away]["ORB"] += player["ORB"]
             team_stats[away]["DRB"] += player["DRB"]

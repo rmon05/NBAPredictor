@@ -11,5 +11,9 @@ apache-airflow-providers-standard
 matplotlib>=3.9,<4.0
 pathlib==1.0.1
 torch==2.9.0 
+xgboost==3.1.1
 
 openai==2.6.1
+python-dotenv==1.2.1
+pynput==1.8.1
+pyautogui==0.9.54
