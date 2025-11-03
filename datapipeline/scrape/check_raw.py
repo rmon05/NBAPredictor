@@ -10,7 +10,7 @@ def check(year):
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             if not ('<tr class="qry-tr">' in content) and not  ('No Results Found' in content):
-                print(f"❌ '{filename}' does NOT contain results")
+                print(f"'{filename}' does NOT contain results")
                 bad += 1
             else:
                 good += 1

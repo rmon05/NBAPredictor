@@ -61,27 +61,6 @@ def extract_html(year, date, query):
     # print
     print(f"Finished: {query}")
 
-def extract_data():
-    input_file = "raw.txt"
-    output_file = "extracted.txt"
-
-    # Read input file
-    with open(input_file, "r", encoding="utf-8") as f:
-        text = f.read()
-
-    # Regex pattern to match: <tr class="qry-tr"> ... </tr>
-    pattern = re.compile(r'<tr class="qry-tr">.*?</tr>', re.DOTALL)
-    matches = pattern.findall(text)
-
-    # Write matches to output file
-    with open(output_file, "a", encoding="utf-8") as f:
-        for match in matches:
-            f.write(match + "\n")
-
-    # Clear the original file
-    open(input_file, "w").close()
-
-
 start_end_dates = {
     "2015": [date(2014, 10, 28), date(2015, 4, 15)],
     "2016": [date(2015, 10, 27), date(2016, 4, 13)],

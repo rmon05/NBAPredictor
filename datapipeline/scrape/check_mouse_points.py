@@ -8,7 +8,7 @@ def on_click(x, y, button, pressed):
     print(f"{event_type:<8} {button:<10} at (x={x}, y={y})\n")
 
 def main():
-    print("🖱️  Mouse click tracker started. Press Ctrl+C to stop.\n")
+    print("Mouse click tracker started. Press Ctrl+C to stop.\n")
     try:
         # Start listening for clicks
         with mouse.Listener(on_click=on_click) as listener:
