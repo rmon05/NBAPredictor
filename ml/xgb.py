@@ -18,6 +18,24 @@ def compute_baseline_mse(y_train, y_test):
     baseline_mse = mean_squared_error(y_test, y_pred_baseline)
     return baseline_mse
 
+def compute_book_mse(spread_train_scaled, y_train_scaled, spread_test_scaled, y_test_scaled):
+    # define book mse as the "target" mse provided by the books
+    # a model that has a lower mse than this beats the books
+    # in theory, given fair odds
+    model = xgb.XGBRegressor(
+            n_estimators=500,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42
+        )
+    model.fit(spread_train_scaled, y_train_scaled, eval_set=[(spread_test_scaled, y_test_scaled)], 
+                  verbose=False)
+    y_pred = model.predict(spread_test_scaled)
+    book_mse = np.mean((y_test_scaled.values.ravel() - y_pred)**2)
+    return book_mse
+
 def kfold_cross_validation(k=5):
     df = pd.read_parquet(input_path_parquet)
 
@@ -28,6 +46,8 @@ def kfold_cross_validation(k=5):
 
     kf = KFold(n_splits=k, shuffle=True, random_state=42)
     fold_mses = []
+    baseline_mses = []
+    book_mses = []
 
     for fold, (train_idx, test_idx) in enumerate(kf.split(X)):
         print(f"\nFold {fold+1}:")
@@ -46,14 +66,19 @@ def kfold_cross_validation(k=5):
         for i in range(5):
             cols.append(f"Starter{i}_BPM1")
             cols.append(f"Starter{i}_BPM2")
-            
+        X_train_spreads = X_train_scaled.loc[:, "Spread"]
+        X_test_spreads = X_test_scaled.loc[:, "Spread"]
         X_train_scaled = X_train_scaled.loc[:, cols]
         X_test_scaled = X_test_scaled.loc[:, cols]
 
 
-        # Compute baseline
+        # Compute baselines
         baseline_mse = compute_baseline_mse(y_train_scaled, y_test_scaled)
         print(f"Baseline MSE (predicting mean outcome): {baseline_mse:.4f}")
+        book_mse = compute_book_mse(X_train_spreads, y_train_scaled, X_test_spreads, y_test_scaled)
+        print(f"Book MSE (predicting book spread): {book_mse:.4f}")
+        baseline_mses.append(baseline_mse)
+        book_mses.append(book_mse)
 
         # xg boost regressor
         model = xgb.XGBRegressor(
@@ -89,7 +114,9 @@ def kfold_cross_validation(k=5):
         print(f"Fold {fold+1} RMSE (original scale): {rmse_original:.4f}")
     
     # cumulative
-    print(f"\nAverage MSE across {k} folds: {np.mean(fold_mses):.4f}")
+    print(f"\nAverage Baseline MSE across {k} folds: {np.mean(baseline_mses):.4f}")
+    print(f"Average Book MSE across {k} folds: {np.mean(book_mses):.4f}")
+    print(f"Average MSE across {k} folds: {np.mean(fold_mses):.4f}")
         
 
 
