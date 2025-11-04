@@ -33,6 +33,10 @@ def roll_year(year: int):
         away = row["Opp"]
         home_box_scores = row["HomeBoxScores"]
         away_box_scores = row["AwayBoxScores"]
+        # bet data
+        has_bet_data = row["DaysRest"] is not None and row["DaysRest"] != "-" \
+            and row["PregameSpread"] != "NaN" and row["PregameTotal"] != "NaN"
+        
 
         # init
         if not (home in team_stats):
@@ -90,14 +94,21 @@ def roll_year(year: int):
             team_stats[away]["TOV"] = 0
         
         # Write to datapoint if sufficient data
-        if team_stats[home]["W"]+team_stats[home]["L"] >= DATA_THRESHOLD:
+        if team_stats[home]["W"]+team_stats[home]["L"] >= DATA_THRESHOLD and has_bet_data:
             home_datapoint = {}
             away_datapoint = {}
             home_played = team_stats[home]["W"]+team_stats[home]["L"]
             away_played = team_stats[away]["W"]+team_stats[away]["L"]
+            home_rest = row["DaysRest"].split("&")[0]
+            away_rest = row["DaysRest"].split("&")[1]
+            pregame_spread = float(row["PregameSpread"]) # Note this is from the home perspective
+            pregame_total = row["PregameTotal"]
+
 
             home_datapoint["Home"] = 1
             home_datapoint["Result"] = row["PTS"]-row["PTS.1"]
+            home_datapoint["Spread"] = pregame_spread
+            home_datapoint["Total"] = pregame_total
             # home_datapoint["Team1"] = home
             home_datapoint["WinPct1"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
             home_datapoint["LocationWinPct1"] = team_stats[home]["HomeW"]/(team_stats[home]["HomeW"]+team_stats[home]["HomeL"])
@@ -118,6 +129,7 @@ def roll_year(year: int):
             home_datapoint["STL1"] = team_stats[home]["STL"]/home_played
             home_datapoint["BLK1"] = team_stats[home]["BLK"]/home_played
             home_datapoint["TOV1"] = team_stats[home]["TOV"]/home_played
+            home_datapoint["Rest1"] = home_rest
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = home_box_scores[i]
@@ -147,6 +159,7 @@ def roll_year(year: int):
             home_datapoint["STL2"] = team_stats[away]["STL"]/away_played
             home_datapoint["BLK2"] = team_stats[away]["BLK"]/away_played
             home_datapoint["TOV2"] = team_stats[away]["TOV"]/away_played
+            home_datapoint["Rest2"] = away_rest
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = away_box_scores[i]
@@ -159,6 +172,8 @@ def roll_year(year: int):
 
             away_datapoint["Home"] = 0
             away_datapoint["Result"] = row["PTS.1"]-row["PTS"]
+            away_datapoint["Spread"] = -pregame_spread
+            away_datapoint["Total"] = pregame_total
             # away_datapoint["Team1"] = away
             away_datapoint["WinPct1"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
             away_datapoint["LocationWinPct1"] = team_stats[away]["AwayW"]/(team_stats[away]["AwayW"]+team_stats[away]["AwayL"])
@@ -179,6 +194,7 @@ def roll_year(year: int):
             away_datapoint["STL1"] = team_stats[away]["STL"]/away_played
             away_datapoint["BLK1"] = team_stats[away]["BLK"]/away_played
             away_datapoint["TOV1"] = team_stats[away]["TOV"]/away_played
+            away_datapoint["Rest1"] = away_rest
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = away_box_scores[i]
@@ -208,6 +224,7 @@ def roll_year(year: int):
             away_datapoint["STL2"] = team_stats[home]["STL"]/home_played
             away_datapoint["BLK2"] = team_stats[home]["BLK"]/home_played
             away_datapoint["TOV2"] = team_stats[home]["TOV"]/home_played
+            away_datapoint["Rest2"] = home_rest
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = home_box_scores[i]
