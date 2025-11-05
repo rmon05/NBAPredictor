@@ -106,7 +106,7 @@ def roll_year(year: int):
 
 
             home_datapoint["Home"] = 1
-            home_datapoint["Result"] = row["PTS"]-row["PTS.1"]
+            home_datapoint["Result"] = row["PTS"]-row["PTS.1"] # Note this is OPPOSITE of spread
             home_datapoint["Spread"] = pregame_spread
             home_datapoint["Total"] = pregame_total
             # home_datapoint["Team1"] = home
@@ -336,8 +336,6 @@ def main():
     # copy csv to parquet
     df_all = pd.read_csv(output_path_csv)
     df_all.to_parquet(output_path_parquet)
-
-    # shuffle rows
 
 if __name__ == "__main__":
     main()

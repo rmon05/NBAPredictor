@@ -1,0 +1,100 @@
+from datetime import date, timedelta
+import time
+import pyautogui
+import pyperclip
+import re
+
+def extract_html(year, date, url, run_num):
+    if run_num >= 5:
+        print(f"Query: {date} exceeded 5 runs! Please investigate!")
+        return
+    
+    # switch to screen
+    pyautogui.hotkey('alt', 'tab')
+    time.sleep(0.1)
+
+    # url paste
+    pyautogui.click(450, 95)
+    time.sleep(0.1)
+    pyautogui.hotkey("ctrl", "a")
+    time.sleep(0.1)
+
+    # paste query in link and enter
+    pyperclip.copy(url)
+    pyautogui.hotkey("ctrl", "v")
+    time.sleep(0.1)
+    pyautogui.hotkey("enter")
+    time.sleep(10)
+
+
+    for i in range(1):
+        # html
+        pyautogui.click(1170, 215)
+        time.sleep(0.5)
+
+        # dropdown
+        pyautogui.click(1132, 210)
+        time.sleep(0.5)
+
+        # copy & copy element
+        pyautogui.click(1225, 481)
+        time.sleep(0.5)
+        pyautogui.click(1566, 488)
+        time.sleep(0.5)
+
+    # Write out
+    pyautogui.hotkey('alt', 'tab')
+    clipboard_content = pyperclip.paste()
+    with open(f"../../data/sportsbookreview_html/{year}/{date}.txt", "w", encoding="utf-8") as f:
+        f.write(clipboard_content)
+    time.sleep(0.1)
+    
+    # Check
+    with open(f"../../data/sportsbookreview_html/{year}/{date}.txt", "r", encoding="utf-8") as f:
+        content = f.read()
+        if not ('PointspreadDataOpeningAndLatestOddsDataView' in content) and not ("No odds available" in content):
+            # refresh and try again
+            pyautogui.hotkey('alt', 'tab')
+            time.sleep(0.1)
+            pyautogui.hotkey('ctrl', 'r')
+            time.sleep(0.1)
+            pyautogui.hotkey('alt', 'tab')
+            time.sleep(0.1)
+            extract_html(year, date, url, run_num+1)
+
+    # print
+    # print(f"Finished: {date}")
+
+start_end_dates = {
+    "2020": [date(2019, 10, 22), date(2020, 8, 14)],
+    "2021": [date(2020, 12, 22), date(2021, 5, 16)],
+    "2022": [date(2021, 10, 19), date(2022, 4, 10)],
+    "2023": [date(2022, 10, 18), date(2023, 4, 9)],
+    "2024": [date(2023, 10, 24), date(2024, 4, 14)],
+    "2025": [date(2024, 10, 22), date(2025, 4, 13)],
+}
+def main():
+    print("Preparing to scrape in 5 seconds!")
+    time.sleep(5)
+
+    total_start = time.time()
+
+    # Iterate through all days
+    # NOTE start flow on raw.txt
+    for year, (start_date, end_date) in start_end_dates.items():
+        current = start_date
+        while current <= end_date:
+            yyyymmdd = current.strftime("%Y-%m-%d")
+            query = f"date={yyyymmdd}"
+            url = f"https://www.sportsbookreview.com/betting-odds/nba-basketball/?{query}"
+            extract_html(year, current, url, 1)
+            current += timedelta(days=1)
+
+    total_end = time.time()
+    total_seconds = total_end - total_start
+    td = timedelta(seconds=total_seconds)
+    print(f"Scraped {start_date} to {end_date} in {td}")
+
+
+if __name__ == "__main__":
+    main()

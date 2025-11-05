@@ -25,12 +25,14 @@ def ingest_year(year: int):
             continue
 
         df = pd.read_csv(csv_path)
+        if "Date" in df.columns:
+            df["Date"] = df["Date"].astype(str)
         
-        # Duplicate column
+        # Duplicate column, and fix PTS
         if csv_file == "gamesRaw.csv" and "PTS.2" in df.columns:
-            df['PTS'], df['PTS.2'] = df['PTS.2'], df['PTS']
+            df['PTS.1'], df['PTS.2'] = df['PTS.2'], df['PTS.1']
             df = df.drop(columns=["PTS.2"]) 
-            print(f"Replaced PTS with PTS.2 for {csv_path}")
+            print(f"Replaced PTS.1 with PTS.2 for {csv_path}")
         
         parquet_path = year_processed_path / f"{csv_file.replace('.csv', '.parquet')}"
 

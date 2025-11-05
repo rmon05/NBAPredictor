@@ -11,14 +11,28 @@ def join_year(year: int):
     raw_games_path = data_dir / f"raw/parquet/{year}/gamesRaw.parquet"
     raw_box_path = data_dir / f"raw/parquet/{year}/boxScoreRaw.parquet"
     raw_odds_path = data_dir / f"killersports_formatted/parquet/{year}/betData.parquet"
+    raw_sbr_path = data_dir / f"sportsbookreview_formatted/parquet/{year}/formatted.parquet"
     output_path_parquet = data_dir / f"joined/parquet/{year}/gamesJoined.parquet"
     output_path_csv = data_dir / f"joined/csv/{year}/gamesJoined.csv"
     output_path_parquet.parent.mkdir(parents=True, exist_ok=True)
     output_path_csv.parent.mkdir(parents=True, exist_ok=True)
     df_games = pd.read_parquet(raw_games_path)
     df_box = pd.read_parquet(raw_box_path)
-    df_betdata = pd.read_parquet(raw_odds_path)
+    df_killersports = pd.read_parquet(raw_odds_path)
+    df_sbr = pd.read_parquet(raw_sbr_path)
 
+
+    # df_games = pd.read_csv(data_dir / f"raw/csv/{year}/boxScoreRaw.csv")
+    # df_box = pd.read_csv(data_dir / f"raw/csv/{year}/boxScoreRaw.csv")
+    # df_killersports = pd.read_csv(data_dir / f"killersports_formatted/csv/{year}/betData.csv")
+    # df_sbr = pd.read_csv(data_dir / f"sportsbookreview_extracted/csv/{year}/extracted.csv")
+
+    # df_games["Date"] = df_games["Date"].astype("string")
+    # df_box["Date"] = df_box["Date"].astype("string")
+    # df_killersports["Date"] = df_killersports["Date"].astype("string")
+    # df_sbr["Date"] = df_sbr["Date"].astype("string")
+
+    
     # JOIN GAME and BOX SCORES
     # agg on key (date, team)
     # limit to top 10 contributors for now
@@ -40,12 +54,16 @@ def join_year(year: int):
     df_joined = df_joined.merge(df_away_agg, on=["Date", "Team"])
     
 
-    # LEFT JOIN GAME+BOX with BET DATA (some rows missing)
-    df_betdata = df_betdata.drop(columns=["Result", "Site", "Opp"])
-    df_joined = pd.merge(df_joined, df_betdata, on=["Date", "Team"], how='left')
-    df_joined.rename(columns={"Team": "Home"}, inplace=True)
+    # LEFT JOIN GAME+BOX with KILLERSPORTS BET DATA (some rows missing)
+    df_killersports = df_killersports.drop(columns=["Result", "Site", "Opp"])
+    df_joined = pd.merge(df_joined, df_killersports, on=["Date", "Team"], how='left')
 
-    # move boxscore data to end and json dump
+    # LEFT JOIN GAME+BOX with SPORTSBOOKREVIEW BET DATA (some rows missing)
+    df_sbr = df_sbr.drop(columns=["gid", "Opp"])
+    df_joined = pd.merge(df_joined, df_sbr, on=["Date", "Team"], how='left')
+
+    # rename home move boxscore data to end and json dump
+    df_joined.rename(columns={"Team": "Home"}, inplace=True)
     df_joined = df_joined[
         [c for c in df_joined.columns if (c != "HomeBoxScores" and c != "AwayBoxScores")] + ["HomeBoxScores"] + ["AwayBoxScores"]
     ]
@@ -55,8 +73,6 @@ def join_year(year: int):
     # write out
     df_joined.to_parquet(output_path_parquet, index=False)
     df_joined.to_csv(output_path_csv, index=False)
-
-    
 
     end_year = time.time()
     print(f"Finished joining year {year} | Total time: {end_year - start_year:.2f}s\n")
