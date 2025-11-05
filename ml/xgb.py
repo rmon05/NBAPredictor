@@ -4,7 +4,7 @@ from sklearn.metrics import mean_squared_error
 import numpy as np
 import pandas as pd
 
-from normalize import normalize
+from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 import time
 
@@ -36,6 +36,26 @@ def compute_book_mse(spread_train_scaled, y_train_scaled, spread_test_scaled, y_
     book_mse = np.mean((y_test_scaled.values.ravel() - y_pred)**2)
     return book_mse
 
+def normalize_rolling(X_train, X_test, y_train, y_test, home_train, home_test):
+    # Z scale everything else besides Home which is binary feature
+    scaler_X = StandardScaler()
+    X_train_scaled = scaler_X.fit_transform(X_train)
+    X_test_scaled = scaler_X.transform(X_test)
+
+    # Add Home back unscaled
+    X_train_scaled = pd.DataFrame(X_train_scaled, columns=X_train.columns, index=X_train.index)
+    X_train_scaled["Home"] = home_train.values
+    X_test_scaled = pd.DataFrame(X_test_scaled, columns=X_test.columns, index=X_test.index)
+    X_test_scaled["Home"] = home_test.values
+
+    scaler_y = StandardScaler()
+    y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1,1))
+    y_test_scaled = scaler_y.transform(y_test.values.reshape(-1,1))
+    y_train_scaled = pd.DataFrame(y_train_scaled, columns=["Result"])
+    y_test_scaled  = pd.DataFrame(y_test_scaled, columns=["Result"])
+
+    return X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled
+
 def kfold_cross_validation(k=5):
     df = pd.read_parquet(input_path_parquet)
 
@@ -52,11 +72,11 @@ def kfold_cross_validation(k=5):
     for fold, (train_idx, test_idx) in enumerate(kf.split(X)):
         print(f"\nFold {fold+1}:")
 
-        # Normalize
+        # Normalize rolling datapoints
         X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
         home_train, home_test = X_train["Home"], X_test["Home"]
-        X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled = normalize(X_train, X_test, y_train, y_test, home_train, home_test)
+        X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled = normalize_rolling(X_train, X_test, y_train, y_test, home_train, home_test)
 
 
         # Try smaller inputs

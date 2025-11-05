@@ -8,7 +8,6 @@ data_dir = Path(__file__).parent / "../data"
 input_path_book_parquet = data_dir / f"books/parquet/books.parquet"
 
         
-
 def eval_books():
     df = pd.read_parquet(input_path_book_parquet)
 
