@@ -80,8 +80,12 @@ def kfold_cross_validation(k=5):
 
 
         # Try smaller inputs
-        cols = ["Home", "WinPct1", "WinPct2", "PTSDiff1", "PTSDiff2", 
-                "Streak1", "Streak2"
+        cols = ["Home", 
+                "PTSDiff1", "PTSDiff2", 
+                "Streak1", "Streak2", "Rest1", "Rest2",
+                "agg4FRdiff",
+                # "WinPct1", "WinPct2", 
+                # "OppWinPct1", "OppWinPct2",
                 ]
         for i in range(5):
             cols.append(f"Starter{i}_BPM1")
@@ -102,12 +106,12 @@ def kfold_cross_validation(k=5):
 
         # xg boost regressor
         model = xgb.XGBRegressor(
-            n_estimators=500,
+            n_estimators=1000,
             max_depth=4,
-            learning_rate=0.05,
-            subsample=0.8,
+            learning_rate=0.01,
+            subsample=0.6,
             colsample_bytree=0.8,
-            random_state=42
+            random_state=31
         )
         
         # Train

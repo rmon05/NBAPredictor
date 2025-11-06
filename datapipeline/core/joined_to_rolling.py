@@ -43,6 +43,8 @@ def roll_year(year: int):
             team_stats[home] = {}
             team_stats[home]["W"] = 0
             team_stats[home]["L"] = 0
+            team_stats[home]["OppW"] = 0
+            team_stats[home]["OppL"] = 0
             team_stats[home]["HomeW"] = 0
             team_stats[home]["HomeL"] = 0
             team_stats[home]["AwayW"] = 0
@@ -61,7 +63,7 @@ def roll_year(year: int):
             team_stats[home]["Streak"] = 0
             team_stats[home]["AST"] = 0
             team_stats[home]["ORB"] = 0
-            team_stats[home]["DRB"] = 0
+            team_stats[home]["OppDRB"] = 0
             team_stats[home]["STL"] = 0
             team_stats[home]["BLK"] = 0
             team_stats[home]["TOV"] = 0
@@ -70,6 +72,8 @@ def roll_year(year: int):
             team_stats[away] = {}
             team_stats[away]["W"] = 0
             team_stats[away]["L"] = 0
+            team_stats[away]["OppW"] = 0
+            team_stats[away]["OppL"] = 0
             team_stats[away]["HomeW"] = 0
             team_stats[away]["HomeL"] = 0
             team_stats[away]["AwayW"] = 0
@@ -88,7 +92,7 @@ def roll_year(year: int):
             team_stats[away]["Streak"] = 0
             team_stats[away]["AST"] = 0
             team_stats[away]["ORB"] = 0
-            team_stats[away]["DRB"] = 0
+            team_stats[away]["OppDRB"] = 0
             team_stats[away]["STL"] = 0
             team_stats[away]["BLK"] = 0
             team_stats[away]["TOV"] = 0
@@ -111,6 +115,7 @@ def roll_year(year: int):
             home_datapoint["Total"] = pregame_total
             # home_datapoint["Team1"] = home
             home_datapoint["WinPct1"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
+            home_datapoint["OppWinPct1"] = team_stats[home]["OppW"]/(team_stats[home]["OppW"]+team_stats[home]["OppL"])
             home_datapoint["LocationWinPct1"] = team_stats[home]["HomeW"]/(team_stats[home]["HomeW"]+team_stats[home]["HomeL"])
             home_datapoint["PTS1"] = team_stats[home]["PTS"]/home_played
             home_datapoint["FG1"] = team_stats[home]["FG"]/home_played
@@ -124,12 +129,15 @@ def roll_year(year: int):
             home_datapoint["PTSDiff1"] = team_stats[home]["PTSDiffTot"]/home_played
             home_datapoint["Streak1"] = team_stats[home]["Streak"]
             home_datapoint["AST1"] = team_stats[home]["AST"]/home_played
-            home_datapoint["ORB1"] = team_stats[home]["ORB"]/home_played
-            home_datapoint["DRB1"] = team_stats[home]["DRB"]/home_played
             home_datapoint["STL1"] = team_stats[home]["STL"]/home_played
             home_datapoint["BLK1"] = team_stats[home]["BLK"]/home_played
             home_datapoint["TOV1"] = team_stats[home]["TOV"]/home_played
             home_datapoint["Rest1"] = home_rest
+            home_datapoint["eFG1"] = (team_stats[home]["FG"]+0.5*team_stats[home]["3P"])/team_stats[home]["FGA"]
+            home_datapoint["TOVpct1"] = team_stats[home]["TOV"]/(team_stats[home]["FGA"]+0.44*team_stats[home]["FTA"]+team_stats[home]["TOV"])
+            home_datapoint["ORBpct1"] = team_stats[home]["ORB"]/(team_stats[home]["ORB"]+team_stats[home]["OppDRB"])
+            home_datapoint["FTrate1"] = team_stats[home]["FTA"]/team_stats[home]["FGA"]
+            home_datapoint["agg4FR1"] = 0.5*home_datapoint["eFG1"]-0.3*home_datapoint["TOVpct1"]+0.15*home_datapoint["ORBpct1"]+0.05*home_datapoint["FTrate1"]
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = home_box_scores[i]
@@ -141,6 +149,7 @@ def roll_year(year: int):
 
             # home_datapoint["Team2"] = away
             home_datapoint["WinPct2"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
+            home_datapoint["OppWinPct2"] = team_stats[away]["OppW"]/(team_stats[away]["OppW"]+team_stats[away]["OppL"])
             home_datapoint["LocationWinPct2"] = team_stats[away]["AwayW"]/(team_stats[away]["AwayW"]+team_stats[away]["AwayL"])
             home_datapoint["PTS2"] = team_stats[away]["PTS"]/away_played
             home_datapoint["FG2"] = team_stats[away]["FG"]/away_played
@@ -154,12 +163,16 @@ def roll_year(year: int):
             home_datapoint["PTSDiff2"] = team_stats[away]["PTSDiffTot"]/away_played
             home_datapoint["Streak2"] = team_stats[away]["Streak"]
             home_datapoint["AST2"] = team_stats[away]["AST"]/away_played
-            home_datapoint["ORB2"] = team_stats[away]["ORB"]/away_played
-            home_datapoint["DRB2"] = team_stats[away]["DRB"]/away_played
             home_datapoint["STL2"] = team_stats[away]["STL"]/away_played
             home_datapoint["BLK2"] = team_stats[away]["BLK"]/away_played
             home_datapoint["TOV2"] = team_stats[away]["TOV"]/away_played
             home_datapoint["Rest2"] = away_rest
+            home_datapoint["eFG2"] = (team_stats[away]["FG"]+0.5*team_stats[away]["3P"])/team_stats[away]["FGA"]
+            home_datapoint["TOVpct2"] = team_stats[away]["TOV"]/(team_stats[away]["FGA"]+0.44*team_stats[away]["FTA"]+team_stats[away]["TOV"])
+            home_datapoint["ORBpct2"] = team_stats[away]["ORB"]/(team_stats[away]["ORB"]+team_stats[away]["OppDRB"])
+            home_datapoint["FTrate2"] = team_stats[away]["FTA"]/team_stats[away]["FGA"]
+            home_datapoint["agg4FR2"] = 0.5*home_datapoint["eFG2"]-0.3*home_datapoint["TOVpct2"]+0.15*home_datapoint["ORBpct2"]+0.05*home_datapoint["FTrate2"]
+            home_datapoint["agg4FRdiff"] = home_datapoint["agg4FR1"]-home_datapoint["agg4FR2"]
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = away_box_scores[i]
@@ -176,6 +189,7 @@ def roll_year(year: int):
             away_datapoint["Total"] = pregame_total
             # away_datapoint["Team1"] = away
             away_datapoint["WinPct1"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
+            away_datapoint["OppWinPct1"] = team_stats[away]["OppW"]/(team_stats[away]["OppW"]+team_stats[away]["OppL"])
             away_datapoint["LocationWinPct1"] = team_stats[away]["AwayW"]/(team_stats[away]["AwayW"]+team_stats[away]["AwayL"])
             away_datapoint["PTS1"] = team_stats[away]["PTS"]/away_played
             away_datapoint["FG1"] = team_stats[away]["FG"]/away_played
@@ -189,12 +203,15 @@ def roll_year(year: int):
             away_datapoint["PTSDiff1"] = team_stats[away]["PTSDiffTot"]/away_played
             away_datapoint["Streak1"] = team_stats[away]["Streak"]
             away_datapoint["AST1"] = team_stats[away]["AST"]/away_played
-            away_datapoint["ORB1"] = team_stats[away]["ORB"]/away_played
-            away_datapoint["DRB1"] = team_stats[away]["DRB"]/away_played
             away_datapoint["STL1"] = team_stats[away]["STL"]/away_played
             away_datapoint["BLK1"] = team_stats[away]["BLK"]/away_played
             away_datapoint["TOV1"] = team_stats[away]["TOV"]/away_played
             away_datapoint["Rest1"] = away_rest
+            away_datapoint["eFG1"] = (team_stats[away]["FG"]+0.5*team_stats[away]["3P"])/team_stats[away]["FGA"]
+            away_datapoint["TOVpct1"] = team_stats[away]["TOV"]/(team_stats[away]["FGA"]+0.44*team_stats[away]["FTA"]+team_stats[away]["TOV"])
+            away_datapoint["ORBpct1"] = team_stats[away]["ORB"]/(team_stats[away]["ORB"]+team_stats[away]["OppDRB"])
+            away_datapoint["FTrate1"] = team_stats[away]["FTA"]/team_stats[away]["FGA"]
+            away_datapoint["agg4FR1"] = 0.5*away_datapoint["eFG1"]-0.3*away_datapoint["TOVpct1"]+0.15*away_datapoint["ORBpct1"]+0.05*away_datapoint["FTrate1"]
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = away_box_scores[i]
@@ -206,6 +223,7 @@ def roll_year(year: int):
 
             # away_datapoint["Team2"] = home
             away_datapoint["WinPct2"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
+            away_datapoint["OppWinPct2"] = team_stats[home]["OppW"]/(team_stats[home]["OppW"]+team_stats[home]["OppL"])
             away_datapoint["LocationWinPct2"] = team_stats[home]["HomeW"]/(team_stats[home]["HomeW"]+team_stats[home]["HomeL"])
             away_datapoint["PTS2"] = team_stats[home]["PTS"]/home_played
             away_datapoint["FG2"] = team_stats[home]["FG"]/home_played
@@ -219,12 +237,16 @@ def roll_year(year: int):
             away_datapoint["PTSDiff2"] = team_stats[home]["PTSDiffTot"]/home_played
             away_datapoint["Streak2"] = team_stats[home]["Streak"]
             away_datapoint["AST2"] = team_stats[home]["AST"]/home_played
-            away_datapoint["ORB2"] = team_stats[home]["ORB"]/home_played
-            away_datapoint["DRB2"] = team_stats[home]["DRB"]/home_played
             away_datapoint["STL2"] = team_stats[home]["STL"]/home_played
             away_datapoint["BLK2"] = team_stats[home]["BLK"]/home_played
             away_datapoint["TOV2"] = team_stats[home]["TOV"]/home_played
             away_datapoint["Rest2"] = home_rest
+            away_datapoint["eFG2"] = (team_stats[home]["FG"]+0.5*team_stats[home]["3P"])/team_stats[home]["FGA"]
+            away_datapoint["TOVpct2"] = team_stats[home]["TOV"]/(team_stats[home]["FGA"]+0.44*team_stats[home]["FTA"]+team_stats[home]["TOV"])
+            away_datapoint["ORBpct2"] = team_stats[home]["ORB"]/(team_stats[home]["ORB"]+team_stats[home]["OppDRB"])
+            away_datapoint["FTrate2"] = team_stats[home]["FTA"]/team_stats[home]["FGA"]
+            away_datapoint["agg4FR2"] = 0.5*away_datapoint["eFG2"]-0.3*away_datapoint["TOVpct2"]+0.15*away_datapoint["ORBpct2"]+0.05*away_datapoint["FTrate2"]
+            away_datapoint["agg4FRdiff"] = away_datapoint["agg4FR1"]-away_datapoint["agg4FR2"]
             # Assume 5 highest minute players are the starters
             for i in range(5):
                 player = home_box_scores[i]
@@ -240,6 +262,10 @@ def roll_year(year: int):
 
         # Update record
         result = row["Result"][0]
+        team_stats[home]["OppW"] += team_stats[away]["W"]
+        team_stats[home]["OppL"] += team_stats[away]["L"]
+        team_stats[away]["OppW"] += team_stats[home]["W"]
+        team_stats[away]["OppL"] += team_stats[home]["L"]
         if result == "W":
             team_stats[home]["W"] += 1
             team_stats[home]["HomeW"] += 1
@@ -292,7 +318,7 @@ def roll_year(year: int):
 
             team_stats[home]["AST"] += player["AST"]
             team_stats[home]["ORB"] += player["ORB"]
-            team_stats[home]["DRB"] += player["DRB"]
+            team_stats[away]["OppDRB"] += player["DRB"]
             team_stats[home]["STL"] += player["STL"]
             team_stats[home]["BLK"] += player["BLK"]
             team_stats[home]["TOV"] += player["TOV"]
@@ -309,7 +335,7 @@ def roll_year(year: int):
 
             team_stats[away]["AST"] += player["AST"]
             team_stats[away]["ORB"] += player["ORB"]
-            team_stats[away]["DRB"] += player["DRB"]
+            team_stats[home]["OppDRB"] += player["DRB"]
             team_stats[away]["STL"] += player["STL"]
             team_stats[away]["BLK"] += player["BLK"]
             team_stats[away]["TOV"] += player["TOV"]
