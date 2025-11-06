@@ -5,7 +5,7 @@ import os
 import json
 
 # min games before writing data
-DATA_THRESHOLD = 30
+DATA_THRESHOLD = 40
 
 # paths
 data_dir = Path(__file__).parent / "../../data"
@@ -14,6 +14,35 @@ output_path_csv = data_dir / f"rolling/csv/gamesRolling.csv"
 output_path_parquet.parent.mkdir(parents=True, exist_ok=True)
 output_path_csv.parent.mkdir(parents=True, exist_ok=True)
 init_year = 2015
+
+def calc_agg4FR(data_row, is_home):
+    sfx = ".1" if not is_home else ""
+    home_box_scores = data_row["HomeBoxScores"]
+    away_box_scores = data_row["AwayBoxScores"]
+
+    # Extract TOV, ORB, oppDRB from box scores
+    TOV = 0
+    ORB = 0
+    oppDRB = 0
+    if is_home:
+        for player in home_box_scores:
+            TOV += player["TOV"]
+            ORB += player["ORB"]
+        for player in away_box_scores:
+            oppDRB += player["DRB"]
+    else:
+        for player in away_box_scores:
+            TOV += player["TOV"]
+            ORB += player["ORB"]
+        for player in home_box_scores:
+            oppDRB += player["DRB"]
+
+    eFG = (data_row["FG"+sfx]+0.5*data_row["3P"+sfx])/data_row["FGA"+sfx]
+    TOVpct = TOV/(data_row["FGA"+sfx]+0.44*data_row["FTA"+sfx]+TOV)
+    ORBpct = ORB/(ORB+oppDRB)
+    FTrate = data_row["FTA"]/data_row["FGA"]
+    agg4FR = 0.5*eFG-0.3*TOVpct+0.15*ORBpct+0.05*FTrate
+    return agg4FR
 
 def roll_year(year: int):
     start_year = time.time()
@@ -60,6 +89,7 @@ def roll_year(year: int):
             team_stats[home]["FTA"] = 0
             
             team_stats[home]["PTSDiffTot"] = 0
+            team_stats[home]["agg4FRDiffTot"] = 0
             team_stats[home]["Streak"] = 0
             team_stats[home]["AST"] = 0
             team_stats[home]["ORB"] = 0
@@ -89,6 +119,7 @@ def roll_year(year: int):
             team_stats[away]["FTA"] = 0
             
             team_stats[away]["PTSDiffTot"] = 0
+            team_stats[away]["agg4FRDiffTot"] = 0
             team_stats[away]["Streak"] = 0
             team_stats[away]["AST"] = 0
             team_stats[away]["ORB"] = 0
@@ -127,18 +158,15 @@ def roll_year(year: int):
             home_datapoint["FT1"] = team_stats[home]["FT"]/home_played
             home_datapoint["FTA1"] = team_stats[home]["FTA"]/home_played
             home_datapoint["PTSDiff1"] = team_stats[home]["PTSDiffTot"]/home_played
+            home_datapoint["agg4FRDiff1"] = team_stats[home]["agg4FRDiffTot"]/home_played
             home_datapoint["Streak1"] = team_stats[home]["Streak"]
             home_datapoint["AST1"] = team_stats[home]["AST"]/home_played
             home_datapoint["STL1"] = team_stats[home]["STL"]/home_played
             home_datapoint["BLK1"] = team_stats[home]["BLK"]/home_played
             home_datapoint["TOV1"] = team_stats[home]["TOV"]/home_played
             home_datapoint["Rest1"] = home_rest
-            home_datapoint["eFG1"] = (team_stats[home]["FG"]+0.5*team_stats[home]["3P"])/team_stats[home]["FGA"]
-            home_datapoint["TOVpct1"] = team_stats[home]["TOV"]/(team_stats[home]["FGA"]+0.44*team_stats[home]["FTA"]+team_stats[home]["TOV"])
-            home_datapoint["ORBpct1"] = team_stats[home]["ORB"]/(team_stats[home]["ORB"]+team_stats[home]["OppDRB"])
-            home_datapoint["FTrate1"] = team_stats[home]["FTA"]/team_stats[home]["FGA"]
-            home_datapoint["agg4FR1"] = 0.5*home_datapoint["eFG1"]-0.3*home_datapoint["TOVpct1"]+0.15*home_datapoint["ORBpct1"]+0.05*home_datapoint["FTrate1"]
             # Assume 5 highest minute players are the starters
+            starter_tot_bpm = 0
             for i in range(5):
                 player = home_box_scores[i]
                 pid = player["Player-additional"]
@@ -146,6 +174,8 @@ def roll_year(year: int):
                     home_datapoint[f"Starter{i}_BPM1"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
                 else:
                     home_datapoint[f"Starter{i}_BPM1"] = 0
+                starter_tot_bpm += home_datapoint[f"Starter{i}_BPM1"]
+            home_datapoint[f"Starters_avg_BPM1"] = starter_tot_bpm/5
 
             # home_datapoint["Team2"] = away
             home_datapoint["WinPct2"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
@@ -161,19 +191,15 @@ def roll_year(year: int):
             home_datapoint["FT2"] = team_stats[away]["FT"]/away_played
             home_datapoint["FTA2"] = team_stats[away]["FTA"]/away_played
             home_datapoint["PTSDiff2"] = team_stats[away]["PTSDiffTot"]/away_played
+            home_datapoint["agg4FRDiff2"] = team_stats[away]["agg4FRDiffTot"]/away_played
             home_datapoint["Streak2"] = team_stats[away]["Streak"]
             home_datapoint["AST2"] = team_stats[away]["AST"]/away_played
             home_datapoint["STL2"] = team_stats[away]["STL"]/away_played
             home_datapoint["BLK2"] = team_stats[away]["BLK"]/away_played
             home_datapoint["TOV2"] = team_stats[away]["TOV"]/away_played
             home_datapoint["Rest2"] = away_rest
-            home_datapoint["eFG2"] = (team_stats[away]["FG"]+0.5*team_stats[away]["3P"])/team_stats[away]["FGA"]
-            home_datapoint["TOVpct2"] = team_stats[away]["TOV"]/(team_stats[away]["FGA"]+0.44*team_stats[away]["FTA"]+team_stats[away]["TOV"])
-            home_datapoint["ORBpct2"] = team_stats[away]["ORB"]/(team_stats[away]["ORB"]+team_stats[away]["OppDRB"])
-            home_datapoint["FTrate2"] = team_stats[away]["FTA"]/team_stats[away]["FGA"]
-            home_datapoint["agg4FR2"] = 0.5*home_datapoint["eFG2"]-0.3*home_datapoint["TOVpct2"]+0.15*home_datapoint["ORBpct2"]+0.05*home_datapoint["FTrate2"]
-            home_datapoint["agg4FRdiff"] = home_datapoint["agg4FR1"]-home_datapoint["agg4FR2"]
             # Assume 5 highest minute players are the starters
+            starter_tot_bpm = 0
             for i in range(5):
                 player = away_box_scores[i]
                 pid = player["Player-additional"]
@@ -181,6 +207,8 @@ def roll_year(year: int):
                     home_datapoint[f"Starter{i}_BPM2"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
                 else:
                     home_datapoint[f"Starter{i}_BPM2"] = 0
+                starter_tot_bpm += home_datapoint[f"Starter{i}_BPM2"]
+            home_datapoint[f"Starters_avg_BPM2"] = starter_tot_bpm/5
 
 
             away_datapoint["Home"] = 0
@@ -201,18 +229,15 @@ def roll_year(year: int):
             away_datapoint["FT1"] = team_stats[away]["FT"]/away_played
             away_datapoint["FTA1"] = team_stats[away]["FTA"]/away_played
             away_datapoint["PTSDiff1"] = team_stats[away]["PTSDiffTot"]/away_played
+            away_datapoint["agg4FRDiff1"] = team_stats[away]["agg4FRDiffTot"]/away_played
             away_datapoint["Streak1"] = team_stats[away]["Streak"]
             away_datapoint["AST1"] = team_stats[away]["AST"]/away_played
             away_datapoint["STL1"] = team_stats[away]["STL"]/away_played
             away_datapoint["BLK1"] = team_stats[away]["BLK"]/away_played
             away_datapoint["TOV1"] = team_stats[away]["TOV"]/away_played
             away_datapoint["Rest1"] = away_rest
-            away_datapoint["eFG1"] = (team_stats[away]["FG"]+0.5*team_stats[away]["3P"])/team_stats[away]["FGA"]
-            away_datapoint["TOVpct1"] = team_stats[away]["TOV"]/(team_stats[away]["FGA"]+0.44*team_stats[away]["FTA"]+team_stats[away]["TOV"])
-            away_datapoint["ORBpct1"] = team_stats[away]["ORB"]/(team_stats[away]["ORB"]+team_stats[away]["OppDRB"])
-            away_datapoint["FTrate1"] = team_stats[away]["FTA"]/team_stats[away]["FGA"]
-            away_datapoint["agg4FR1"] = 0.5*away_datapoint["eFG1"]-0.3*away_datapoint["TOVpct1"]+0.15*away_datapoint["ORBpct1"]+0.05*away_datapoint["FTrate1"]
             # Assume 5 highest minute players are the starters
+            starter_tot_bpm = 0
             for i in range(5):
                 player = away_box_scores[i]
                 pid = player["Player-additional"]
@@ -220,6 +245,8 @@ def roll_year(year: int):
                     away_datapoint[f"Starter{i}_BPM1"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
                 else:
                     away_datapoint[f"Starter{i}_BPM1"] = 0
+                starter_tot_bpm += away_datapoint[f"Starter{i}_BPM1"]
+            away_datapoint[f"Starters_avg_BPM1"] = starter_tot_bpm/5
 
             # away_datapoint["Team2"] = home
             away_datapoint["WinPct2"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
@@ -235,19 +262,15 @@ def roll_year(year: int):
             away_datapoint["FT2"] = team_stats[home]["FT"]/home_played
             away_datapoint["FTA2"] = team_stats[home]["FTA"]/home_played
             away_datapoint["PTSDiff2"] = team_stats[home]["PTSDiffTot"]/home_played
+            away_datapoint["agg4FRDiff2"] = team_stats[home]["agg4FRDiffTot"]/home_played
             away_datapoint["Streak2"] = team_stats[home]["Streak"]
             away_datapoint["AST2"] = team_stats[home]["AST"]/home_played
             away_datapoint["STL2"] = team_stats[home]["STL"]/home_played
             away_datapoint["BLK2"] = team_stats[home]["BLK"]/home_played
             away_datapoint["TOV2"] = team_stats[home]["TOV"]/home_played
             away_datapoint["Rest2"] = home_rest
-            away_datapoint["eFG2"] = (team_stats[home]["FG"]+0.5*team_stats[home]["3P"])/team_stats[home]["FGA"]
-            away_datapoint["TOVpct2"] = team_stats[home]["TOV"]/(team_stats[home]["FGA"]+0.44*team_stats[home]["FTA"]+team_stats[home]["TOV"])
-            away_datapoint["ORBpct2"] = team_stats[home]["ORB"]/(team_stats[home]["ORB"]+team_stats[home]["OppDRB"])
-            away_datapoint["FTrate2"] = team_stats[home]["FTA"]/team_stats[home]["FGA"]
-            away_datapoint["agg4FR2"] = 0.5*away_datapoint["eFG2"]-0.3*away_datapoint["TOVpct2"]+0.15*away_datapoint["ORBpct2"]+0.05*away_datapoint["FTrate2"]
-            away_datapoint["agg4FRdiff"] = away_datapoint["agg4FR1"]-away_datapoint["agg4FR2"]
             # Assume 5 highest minute players are the starters
+            starter_tot_bpm = 0
             for i in range(5):
                 player = home_box_scores[i]
                 pid = player["Player-additional"]
@@ -255,6 +278,8 @@ def roll_year(year: int):
                     away_datapoint[f"Starter{i}_BPM2"] = player_stats[pid]["TotBPM"]/player_stats[pid]["GamesPlayed"]
                 else:
                     away_datapoint[f"Starter{i}_BPM2"] = 0
+                starter_tot_bpm += away_datapoint[f"Starter{i}_BPM2"]
+            away_datapoint[f"Starters_avg_BPM2"] = starter_tot_bpm/5
             
             df_out = pd.concat([df_out, pd.DataFrame([home_datapoint])], ignore_index=True)
             df_out = pd.concat([df_out, pd.DataFrame([away_datapoint])], ignore_index=True)
@@ -304,6 +329,10 @@ def roll_year(year: int):
         # derived stats
         team_stats[home]["PTSDiffTot"] += row["PTS"] - row["PTS.1"]
         team_stats[away]["PTSDiffTot"] += row["PTS.1"] - row["PTS"]
+        agg4FRHome = calc_agg4FR(row, True)
+        agg4FRAway = calc_agg4FR(row, False)
+        team_stats[home]["agg4FRDiffTot"] += agg4FRHome - agg4FRAway
+        team_stats[away]["agg4FRDiffTot"] += agg4FRAway - agg4FRHome
 
         # Box score stats
         for player in home_box_scores:

@@ -11,7 +11,6 @@ import time
 data_dir = Path(__file__).parent / "../data"
 input_path_parquet = data_dir / f"rolling/parquet/gamesRolling.parquet"
 
-
 def compute_baseline_mse(y_train, y_test):
     y_train_mean = y_train.mean()
     y_pred_baseline = [y_train_mean] * len(y_test)
@@ -80,12 +79,16 @@ def kfold_cross_validation(k=5):
 
 
         # Try smaller inputs
-        cols = ["Home", 
+        cols = [
+                "Home", 
                 "PTSDiff1", "PTSDiff2", 
-                "Streak1", "Streak2", "Rest1", "Rest2",
-                "agg4FRdiff",
+                "Rest1", "Rest2",
+                # "Streak1", "Streak2",
+                # "agg4FRDiff1", "agg4FRDiff2",
                 # "WinPct1", "WinPct2", 
                 # "OppWinPct1", "OppWinPct2",
+                # "LocationWinPct1", "LocationWinPct2"
+                # "Starters_avg_BPM1", "Starters_avg_BPM2"
                 ]
         for i in range(5):
             cols.append(f"Starter{i}_BPM1")
@@ -111,7 +114,7 @@ def kfold_cross_validation(k=5):
             learning_rate=0.01,
             subsample=0.6,
             colsample_bytree=0.8,
-            random_state=31
+            random_state=42
         )
         
         # Train
