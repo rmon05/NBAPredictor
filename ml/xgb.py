@@ -9,7 +9,9 @@ from pathlib import Path
 import time
 
 data_dir = Path(__file__).parent / "../data"
+ml_dir = Path(__file__).parent
 input_path_parquet = data_dir / f"rolling/parquet/gamesRolling.parquet"
+saved_models_path = ml_dir / "models"
 
 def compute_baseline_mse(y_train, y_test):
     y_train_mean = y_train.mean()
@@ -139,6 +141,10 @@ def kfold_cross_validation(k=5):
         rmse_original = mse_original ** 0.5
         print(f"Fold {fold+1} MSE (original scale): {mse_original:.4f}")
         print(f"Fold {fold+1} RMSE (original scale): {rmse_original:.4f}")
+
+    # Save
+    model_file = saved_models_path / "xgb_light_1.json"
+    model.save_model(str(model_file))
     
     # cumulative
     print(f"\nAverage Baseline MSE across {k} folds: {np.mean(baseline_mses):.4f}")

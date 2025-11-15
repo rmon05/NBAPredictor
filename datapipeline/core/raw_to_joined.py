@@ -52,6 +52,9 @@ def join_year(year: int):
     # join on home then away games
     df_joined = df_games.merge(df_home_agg, on=["Date", "Team"])
     df_joined = df_joined.merge(df_away_agg, on=["Date", "Team"])
+
+    # Rewrite Results as the pts diff
+    df_joined["Result"] = df_joined["PTS"] - df_joined["PTS.1"]
     
 
     # LEFT JOIN GAME+BOX with KILLERSPORTS BET DATA (some rows missing)
