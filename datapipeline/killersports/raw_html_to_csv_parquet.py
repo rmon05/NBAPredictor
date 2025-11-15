@@ -71,7 +71,7 @@ def ingest_year(year: int):
         "Date",
         "DayOfWeek",
         "Season",
-        "Home",
+        "Team",
         "Opp",
         "Site",
         "Result",
@@ -88,6 +88,15 @@ def ingest_year(year: int):
     df = df.drop(columns=['DayOfWeek', "Season"])
     df["Team"] = df["Team"].apply(lambda team_name: team_to_abbrv[team_name])
     df["Opp"] = df["Opp"].apply(lambda team_name: team_to_abbrv[team_name])
+
+    # Clean rest data
+    df[["RestTeam", "RestOpp"]] = (
+        df["DaysRest"]
+        .str.split("&", expand=True)
+        .replace("-", None)
+        .fillna("5")
+        .astype(float)
+    )
 
     # Write to CSV and Parquet
     csv_path = year_processed_path_csv / f"betData.csv"

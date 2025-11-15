@@ -9,6 +9,8 @@ python -m venv venv
 <br>
 E:\NBAPredictor\venv\Scripts\python.exe -m pip install -r requirements.txt
 <br>
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\killersports\raw_html_to_csv_parquet.py
+
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\raw_csv_to_parquet.py
 
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\raw_to_joined.py
@@ -32,3 +34,5 @@ Solution:
 E:\NBAPredictor\venv\Scripts\python.exe -m pip uninstall torch torchvision torchaudio -y
 E:\NBAPredictor\venv\Scripts\python.exe -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 Make pandas import AFTER torch
+
+

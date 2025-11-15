@@ -60,6 +60,7 @@ def join_year(year: int):
     # LEFT JOIN GAME+BOX with KILLERSPORTS BET DATA (some rows missing)
     df_killersports = df_killersports.drop(columns=["Result", "Site", "Opp"])
     df_joined = pd.merge(df_joined, df_killersports, on=["Date", "Team"], how='left')
+    df_joined.rename(columns={"RestTeam": "RestHome"}, inplace=True)
 
     # LEFT JOIN GAME+BOX with SPORTSBOOKREVIEW BET DATA (some rows missing)
     df_sbr = df_sbr.drop(columns=["gid", "Opp"])

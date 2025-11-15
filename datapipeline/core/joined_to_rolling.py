@@ -63,10 +63,8 @@ def roll_year(year: int):
         home_box_scores = row["HomeBoxScores"]
         away_box_scores = row["AwayBoxScores"]
         # bet data
-        has_bet_data = row["DaysRest"] is not None and row["DaysRest"] != "-" \
-            and row["PregameSpread"] != "NaN" and row["PregameTotal"] != "NaN"
+        has_bet_data = row["PregameSpread"] != "NaN" and row["PregameTotal"] != "NaN"
         
-
         # init
         if not (home in team_stats):
             team_stats[home] = {}
@@ -134,8 +132,8 @@ def roll_year(year: int):
             away_datapoint = {}
             home_played = team_stats[home]["W"]+team_stats[home]["L"]
             away_played = team_stats[away]["W"]+team_stats[away]["L"]
-            home_rest = row["DaysRest"].split("&")[0]
-            away_rest = row["DaysRest"].split("&")[1]
+            home_rest = row["RestTeam"]
+            away_rest = row["RestOpp"]
             pregame_spread = float(row["PregameSpread"]) # Note this is from the home perspective
             pregame_total = row["PregameTotal"]
 
@@ -286,12 +284,12 @@ def roll_year(year: int):
 
 
         # Update record
-        result = row["Result"][0]
+        result = row["Result"]
         team_stats[home]["OppW"] += team_stats[away]["W"]
         team_stats[home]["OppL"] += team_stats[away]["L"]
         team_stats[away]["OppW"] += team_stats[home]["W"]
         team_stats[away]["OppL"] += team_stats[home]["L"]
-        if result == "W":
+        if result > 0:
             team_stats[home]["W"] += 1
             team_stats[home]["HomeW"] += 1
             team_stats[home]["Streak"] = max(1, team_stats[home]["Streak"]+1)
@@ -327,8 +325,8 @@ def roll_year(year: int):
         team_stats[away]["FTA"] += row["FTA.1"]
 
         # derived stats
-        team_stats[home]["PTSDiffTot"] += row["PTS"] - row["PTS.1"]
-        team_stats[away]["PTSDiffTot"] += row["PTS.1"] - row["PTS"]
+        team_stats[home]["PTSDiffTot"] += row["Result"]
+        team_stats[away]["PTSDiffTot"] += -row["Result"]
         agg4FRHome = calc_agg4FR(row, True)
         agg4FRAway = calc_agg4FR(row, False)
         team_stats[home]["agg4FRDiffTot"] += agg4FRHome - agg4FRAway

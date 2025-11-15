@@ -46,48 +46,34 @@ class GRU(nn.Module):
 class HybridNN(nn.Module):
     def __init__(self, fnn_input_size, fnn_hidden_size, gru_input_size, gru_hidden_size):
         super().__init__()
-        self.gru_home = GRU(gru_input_size, gru_hidden_size)
-        self.gru_away = GRU(gru_input_size, gru_hidden_size)
         self.fnn = FNN(fnn_input_size, fnn_hidden_size)
+        self.gru_team = GRU(gru_input_size, gru_hidden_size)
+        self.gru_opp = GRU(gru_input_size, gru_hidden_size)
         self.fc_top = nn.Linear(2*gru_hidden_size+fnn_hidden_size, 1)
 
-    def forward(self, home_seq, away_seq, static_input):
+    def forward(self, static_input, team_seq, opp_seq):
         hidden_fnn = self.fnn(static_input)
-        hidden_home = self.gru_home(home_seq)
-        hidden_away = self.gru_away(away_seq)
+        hidden_team = self.gru_team(team_seq)
+        hidden_opp = self.gru_opp(opp_seq)
         
         # feed all into final top fc layer: (batch, hidden_size*2)
-        combined = torch.cat([hidden_home, hidden_away, hidden_fnn], dim=1)  
+        combined = torch.cat([hidden_fnn, hidden_team, hidden_opp], dim=1)  
         out = self.fc_top(combined)
 
         # (batch,1) --> (batch,)
         return out.squeeze(1)
 
     
-# class TwoGRUModel(nn.Module):
-#     # TBD TBD TBD TBD TBD TBD TBD
-#     def __init__(self, input_size, hidden_size):
-#         super().__init__()
-#         self.gru_home = nn.GRU(input_size=input_size, hidden_size=hidden_size, batch_first=True)
-#         self.gru_away = nn.GRU(input_size=input_size, hidden_size=hidden_size, batch_first=True)
-#         self.fc = nn.Linear(hidden_size*2, 1)  # regression output
-
-#     def forward(self, home_seq, away_seq):
-#         _, h_home = self.gru_home(home_seq)
-#         _, h_away = self.gru_away(away_seq)
-#         h_home = h_home.squeeze(0)  # (1, batch, hidden_size) --> (batch, hidden_size)
-#         h_away = h_away.squeeze(0)
-#         combined = torch.cat([h_home, h_away], dim=1)  # (batch, hidden_size*2)
-#         out = self.fc(combined)
-#         return out.squeeze(1)  # (batch,1) --> (batch,)
-
-    
 class WindowedDataset:
     # Clean this up!
     def __init__(self):
-        self.X_train_list = []
+        self.X_train_list_static = []
+        self.X_train_list_seq_team = []
+        self.X_train_list_seq_opp = []
         self.y_train_list = []
-        self.X_test_list = []
+        self.X_test_list_static = []
+        self.X_test_list_seq_team = []
+        self.X_test_list_seq_opp = []
         self.y_test_list = []
 
     def add_games(self, df_games, train_ratio=0.5):
@@ -101,12 +87,12 @@ class WindowedDataset:
         df_test_unwindowed = df_games.tail(len(df_games)-train_thresh)
 
         # take only relevant cols
-        cols = ["Date", "Home", "Opp", "Result"]
-        scale_cols = ["Result"]
+        cols = ["Date", "Home", "Opp", "Result", "RestHome", "RestOpp"]
+        scale_cols = ["Result", "RestHome", "RestOpp"]
         df_train_unwindowed = df_train_unwindowed.loc[:,cols]
         df_test_unwindowed = df_test_unwindowed.loc[:,cols]
 
-        # normalize just this batch of games
+        # normalize just this batch of games (1 season)
         ct = ColumnTransformer(
             transformers=[
                 ("scale", StandardScaler(), scale_cols)
@@ -131,33 +117,74 @@ class WindowedDataset:
         )
 
         team_games = {}
+        team_stats = {}
+        player_stats = {}
         # window and write TRAINING data
         for _, row in df_train_unwindowed_normalized.iterrows():
             home = row["Home"]
             away = row["Opp"]
+
+            # home_box_scores = row["HomeBoxScores"]
+            # away_box_scores = row["AwayBoxScores"]
+            
+            # init STATIC data
+            if not (home in team_stats):
+                team_stats[home] = {}               
+                team_stats[home]["PTSDiffTot"] = 0
+                team_stats[home]["Played"] = 0
+            if not (away in team_stats):
+                team_stats[away] = {}
+                team_stats[away]["PTSDiffTot"] = 0
+                team_stats[away]["Played"] = 0
+
+            # Init sequence
             if home not in team_games:
                 team_games[home] = []
             if away not in team_games:
                 team_games[away] = []
 
             # Windowed datapoint
-            if len(team_games[home]) >= GAMES_WINDOW_SZ and len(team_games[away]) >= GAMES_WINDOW_SZ:
+            has_rest_data = not (pd.isna(row["RestHome"]) or pd.isna(row["RestOpp"]))
+            if len(team_games[home]) >= GAMES_WINDOW_SZ and len(team_games[away]) >= GAMES_WINDOW_SZ and has_rest_data:
                 # TODO match up the game details
                 # windowed_datapoint["Date"] = row["Date"]
                 # windowed_datapoint["Home"] = home
                 # windowed_datapoint["Away"] = away
+
+                # Static data for both teams
+                home_location = 1
+                away_location = 0
+                home_pts_diff = team_stats[home]["PTSDiffTot"]/team_stats[home]["Played"]
+                away_pts_diff = team_stats[away]["PTSDiffTot"]/team_stats[away]["Played"]
+                home_rest = row["RestHome"]
+                away_rest = row["RestOpp"]
+                home_static = np.array([
+                    home_location, home_pts_diff, away_pts_diff, home_rest, away_rest
+                ])
+                away_static = np.array([
+                    away_location, away_pts_diff, home_pts_diff, away_rest, home_rest
+                ])
+
                 # Store sequenced data for both teams
-                feature_cols = ["Result"]
+                seq_features = ["Result"]
                 home_window = np.array([
-                    [game[col] for col in feature_cols] for game in team_games[home][-GAMES_WINDOW_SZ:]
+                    [game[col] for col in seq_features] for game in team_games[home][-GAMES_WINDOW_SZ:]
                 ], dtype=np.float32)
                 away_window = np.array([
-                    [game[col] for col in feature_cols] for game in team_games[away][-GAMES_WINDOW_SZ:]
+                    [game[col] for col in seq_features] for game in team_games[away][-GAMES_WINDOW_SZ:]
                 ], dtype=np.float32)
-                windowed_datapoint = np.stack([home_window, away_window], axis=0)
-                self.X_train_list.append(windowed_datapoint)
+
+                # Write datapoint for both sides
+                self.X_train_list_static.append(home_static)
+                self.X_train_list_seq_team.append(home_window)
+                self.X_train_list_seq_opp.append(away_window)
                 self.y_train_list.append(row["Result"])
+                self.X_train_list_static.append(away_static)
+                self.X_train_list_seq_team.append(away_window)
+                self.X_train_list_seq_opp.append(home_window)
+                self.y_train_list.append(-row["Result"])
             
+            # UPDATE
             # Store only subset of stats
             home_data = {
                 "Result": row["Result"]
@@ -167,33 +194,80 @@ class WindowedDataset:
             }
             team_games[home].append(home_data)
             team_games[away].append(away_data)
+
+            # Update static accumulated
+            team_stats[home]["PTSDiffTot"] += row["Result"]
+            team_stats[home]["Played"] += 1
+            team_stats[away]["PTSDiffTot"] += -row["Result"]
+            team_stats[away]["Played"] += 1
+
+
         # window and write TEST data
         for _, row in df_test_unwindowed_normalized.iterrows():
             home = row["Home"]
             away = row["Opp"]
+
+            # home_box_scores = row["HomeBoxScores"]
+            # away_box_scores = row["AwayBoxScores"]
+            
+            # init STATIC data
+            if not (home in team_stats):
+                team_stats[home] = {}               
+                team_stats[home]["PTSDiffTot"] = 0
+                team_stats[home]["Played"] = 0
+            if not (away in team_stats):
+                team_stats[away] = {}
+                team_stats[away]["PTSDiffTot"] = 0
+                team_stats[away]["Played"] = 0
+
+            # Init sequence
             if home not in team_games:
                 team_games[home] = []
             if away not in team_games:
                 team_games[away] = []
 
             # Windowed datapoint
-            if len(team_games[home]) >= GAMES_WINDOW_SZ and len(team_games[away]) >= GAMES_WINDOW_SZ:
-                # TODO match up the game details later
+            has_rest_data = not (pd.isna(row["RestHome"]) or pd.isna(row["RestOpp"]))
+            if len(team_games[home]) >= GAMES_WINDOW_SZ and len(team_games[away]) >= GAMES_WINDOW_SZ and has_rest_data:
+                # TODO match up the game details
                 # windowed_datapoint["Date"] = row["Date"]
                 # windowed_datapoint["Home"] = home
                 # windowed_datapoint["Away"] = away
+
+                # Static data for both teams
+                home_location = 1
+                away_location = 0
+                home_pts_diff = team_stats[home]["PTSDiffTot"]/team_stats[home]["Played"]
+                away_pts_diff = team_stats[away]["PTSDiffTot"]/team_stats[away]["Played"]
+                home_rest = row["RestHome"]
+                away_rest = row["RestOpp"]
+                home_static = np.array([
+                    home_location, home_pts_diff, away_pts_diff, home_rest, away_rest
+                ])
+                away_static = np.array([
+                    away_location, away_pts_diff, home_pts_diff, away_rest, home_rest
+                ])
+
                 # Store sequenced data for both teams
-                feature_cols = ["Result"]
+                seq_features = ["Result"]
                 home_window = np.array([
-                    [game[col] for col in feature_cols] for game in team_games[home][-GAMES_WINDOW_SZ:]
+                    [game[col] for col in seq_features] for game in team_games[home][-GAMES_WINDOW_SZ:]
                 ], dtype=np.float32)
                 away_window = np.array([
-                    [game[col] for col in feature_cols] for game in team_games[away][-GAMES_WINDOW_SZ:]
+                    [game[col] for col in seq_features] for game in team_games[away][-GAMES_WINDOW_SZ:]
                 ], dtype=np.float32)
-                windowed_datapoint = np.stack([home_window, away_window], axis=0)
-                self.X_test_list.append(windowed_datapoint)
+
+                # Write datapoint for both sides
+                self.X_test_list_static.append(home_static)
+                self.X_test_list_seq_team.append(home_window)
+                self.X_test_list_seq_opp.append(away_window)
                 self.y_test_list.append(row["Result"])
+                self.X_test_list_static.append(away_static)
+                self.X_test_list_seq_team.append(away_window)
+                self.X_test_list_seq_opp.append(home_window)
+                self.y_test_list.append(-row["Result"])
             
+            # UPDATE
             # Store only subset of stats
             home_data = {
                 "Result": row["Result"]
@@ -204,21 +278,37 @@ class WindowedDataset:
             team_games[home].append(home_data)
             team_games[away].append(away_data)
 
+            # Update static accumulated
+            team_stats[home]["PTSDiffTot"] += row["Result"]
+            team_stats[home]["Played"] += 1
+            team_stats[away]["PTSDiffTot"] += -row["Result"]
+            team_stats[away]["Played"] += 1
+
 
     def to_tensor(self):
         # convert list to numpy array as intermediary
-        X_train = np.stack(self.X_train_list)
+        X_train_static = np.stack(self.X_train_list_static)
+        X_train_seq_team = np.stack(self.X_train_list_seq_team)
+        X_train_seq_opp = np.stack(self.X_train_list_seq_opp)
         y_train = np.stack(self.y_train_list)
-        X_test = np.stack(self.X_test_list)
+        X_test_static = np.stack(self.X_test_list_static)
+        X_test_seq_team = np.stack(self.X_test_list_seq_team)
+        X_test_seq_opp = np.stack(self.X_test_list_seq_opp)
         y_test = np.stack(self.y_test_list)
 
         # convert to tensors
-        X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+        X_train_static_tensor = torch.tensor(X_train_static, dtype=torch.float32)
+        X_train_seq_team_tensor = torch.tensor(X_train_seq_team, dtype=torch.float32)
+        X_train_seq_opp_tensor = torch.tensor(X_train_seq_opp, dtype=torch.float32)
         y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-        X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+        X_test_static_tensor = torch.tensor(X_test_static, dtype=torch.float32)
+        X_test_seq_team_tensor = torch.tensor(X_test_seq_team, dtype=torch.float32)
+        X_test_seq_opp_tensor = torch.tensor(X_test_seq_opp, dtype=torch.float32)
         y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
 
-        return X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor
+        return \
+        X_train_static_tensor, X_train_seq_team_tensor, X_train_seq_opp_tensor, y_train_tensor, \
+        X_test_static_tensor, X_test_seq_team_tensor, X_test_seq_opp_tensor, y_test_tensor
 
 
         
@@ -241,25 +331,63 @@ def main():
 
     # Train and test
     # For GRU split into home and away sequences
-    X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor = wd.to_tensor()
+    X_train_static_tensor, X_train_seq_team_tensor, X_train_seq_opp_tensor, y_train_tensor, \
+    X_test_static_tensor, X_test_seq_team_tensor, X_test_seq_opp_tensor, y_test_tensor = wd.to_tensor()
 
-    X_train_home_tensor = X_train_tensor[:, 0, :, :]
-    X_train_away_tensor = X_train_tensor[:, 1, :, :]
-    X_test_home_tensor = X_test_tensor[:, 0, :, :]
-    X_test_away_tensor = X_test_tensor[:, 1, :, :]
-    train_dataset = TensorDataset(X_train_home_tensor, X_train_away_tensor, y_train_tensor)
-    test_dataset = TensorDataset(X_test_home_tensor, X_test_away_tensor, y_test_tensor)
+
+    # TEST OUTPUT PRINT
+    # print(torch.isnan(X_train_static_tensor).any())
+    # print(torch.isnan(X_test_static_tensor).any())
+
+    # def sanity_check_tensor(name, tensor):
+    #     print(f"\n{name}:")
+    #     print(f"  shape: {tensor.shape}")
+    #     print(f"  dtype: {tensor.dtype}")
+    #     try:
+    #         print(f"  min:   {tensor.min().item():.4f}")
+    #         print(f"  max:   {tensor.max().item():.4f}")
+    #     except:
+    #         print("  (min/max not available)")
+    #     print(f"  sample: {tensor[0]}\n")
+
+
+    # print("=== Sanity Check: Train Tensors ===")
+    # sanity_check_tensor("X_train_static_tensor", X_train_static_tensor)
+    # sanity_check_tensor("X_train_seq_team_tensor", X_train_seq_team_tensor)
+    # sanity_check_tensor("X_train_seq_opp_tensor", X_train_seq_opp_tensor)
+    # sanity_check_tensor("y_train_tensor", y_train_tensor)
+
+    # print("=== Sanity Check: Test Tensors ===")
+    # sanity_check_tensor("X_test_static_tensor", X_test_static_tensor)
+    # sanity_check_tensor("X_test_seq_team_tensor", X_test_seq_team_tensor)
+    # sanity_check_tensor("X_test_seq_opp_tensor", X_test_seq_opp_tensor)
+    # sanity_check_tensor("y_test_tensor", y_test_tensor)
+
+
+    train_dataset = TensorDataset(
+        X_train_static_tensor,
+        X_train_seq_team_tensor,
+        X_train_seq_opp_tensor,
+        y_train_tensor
+    )
+    test_dataset = TensorDataset(
+        X_test_static_tensor,
+        X_test_seq_team_tensor,
+        X_test_seq_opp_tensor,
+        y_test_tensor
+    )
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-    
-
-    # TBD TBD TBD TBD TBD TBD TBD
-    # NEED to feed some static data into FNN to use
     
     # Init network
     EPOCHS = 50
     LR = 0.001
-    model = TwoGRUModel(input_size=1, hidden_size=32)
+    static_input_size = X_train_static_tensor.shape[1]
+    seq_input_size = X_train_seq_team_tensor.shape[2]
+    model = HybridNN(
+        fnn_input_size=static_input_size, fnn_hidden_size=1, 
+        gru_input_size=seq_input_size, gru_hidden_size=32
+    )
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
@@ -267,13 +395,15 @@ def main():
     for epoch in range(EPOCHS):
         model.train()
         total_loss = 0
-        for home_batch, away_batch, y_batch in train_loader:   # <-- two inputs now
+        for static_batch, team_seq_batch, opp_seq_batch, y_batch in train_loader:
+            # reset grads and forward pass
             optimizer.zero_grad()
-            outputs = model(home_batch, away_batch)  # forward pass
-            loss = criterion(outputs, y_batch)      # compute MSE
+            outputs = model(static_batch, team_seq_batch, opp_seq_batch)
+            # compute MSE as criterion and backprop
+            loss = criterion(outputs, y_batch)
             loss.backward()
             optimizer.step()
-            total_loss += loss.item() * home_batch.size(0)
+            total_loss += loss.item() * team_seq_batch.size(0)
 
         avg_loss = total_loss / len(train_loader.dataset)
         if epoch % 10 == 0 or epoch == EPOCHS-1:
@@ -284,8 +414,8 @@ def main():
     with torch.no_grad():
         y_pred = []
         y_true = []
-        for home_batch, away_batch, y_batch in test_loader:
-            preds = model(home_batch, away_batch)
+        for static_batch, team_seq_batch, opp_seq_batch, y_batch in test_loader:
+            preds = model(static_batch, team_seq_batch, opp_seq_batch)
             y_pred.extend(preds.tolist())
             y_true.extend(y_batch.tolist())
 
