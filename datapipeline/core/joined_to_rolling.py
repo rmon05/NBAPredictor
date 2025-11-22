@@ -63,7 +63,8 @@ def roll_year(year: int):
         home_box_scores = row["HomeBoxScores"]
         away_box_scores = row["AwayBoxScores"]
         # bet data
-        has_bet_data = row["PregameSpread"] != "NaN" and row["PregameTotal"] != "NaN"
+        has_bet_data = row["PregameSpread"] != "NaN" and row["PregameTotal"] != "NaN" \
+                        and not (pd.isna(row["RestHome"]) or pd.isna(row["RestOpp"]))
         
         # init
         if not (home in team_stats):
@@ -132,7 +133,7 @@ def roll_year(year: int):
             away_datapoint = {}
             home_played = team_stats[home]["W"]+team_stats[home]["L"]
             away_played = team_stats[away]["W"]+team_stats[away]["L"]
-            home_rest = row["RestTeam"]
+            home_rest = row["RestHome"]
             away_rest = row["RestOpp"]
             pregame_spread = float(row["PregameSpread"]) # Note this is from the home perspective
             pregame_total = row["PregameTotal"]
