@@ -95,6 +95,9 @@ def kfold_cross_validation(k=5):
         for i in range(5):
             cols.append(f"Starter{i}_BPM1")
             cols.append(f"Starter{i}_BPM2")
+        # for games_ago in range(1, 11):
+        #     cols.append(f"prev_{games_ago}_games_ago1")
+        #     cols.append(f"prev_{games_ago}_games_ago2")
         X_train_spreads = X_train_scaled.loc[:, "Spread"]
         X_test_spreads = X_test_scaled.loc[:, "Spread"]
         X_train_scaled = X_train_scaled.loc[:, cols]

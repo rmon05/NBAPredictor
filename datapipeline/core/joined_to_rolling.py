@@ -5,7 +5,8 @@ import os
 import json
 
 # min games before writing data
-DATA_THRESHOLD = 40
+DATA_THRESHOLD = 10
+GAMES_WINDOW_SZ = 10
 
 # paths
 data_dir = Path(__file__).parent / "../../data"
@@ -55,6 +56,7 @@ def roll_year(year: int):
     df_games["AwayBoxScores"] = df_games["AwayBoxScores"].apply(json.loads)
 
     # Initialize team stats & player stats
+    games_history = {}
     team_stats = {}
     player_stats = {}
     for _, row in df_games.iterrows():
@@ -126,9 +128,18 @@ def roll_year(year: int):
             team_stats[away]["STL"] = 0
             team_stats[away]["BLK"] = 0
             team_stats[away]["TOV"] = 0
+
+        # Init sequence
+        if home not in games_history:
+            games_history[home] = []
+        if away not in games_history:
+            games_history[away] = []
         
         # Write to datapoint if sufficient data
-        if team_stats[home]["W"]+team_stats[home]["L"] >= DATA_THRESHOLD and has_bet_data:
+        if len(games_history[home]) >= GAMES_WINDOW_SZ \
+            and len(games_history[away]) >= GAMES_WINDOW_SZ \
+            and team_stats[home]["W"]+team_stats[home]["L"] >= DATA_THRESHOLD \
+            and has_bet_data:
             home_datapoint = {}
             away_datapoint = {}
             home_played = team_stats[home]["W"]+team_stats[home]["L"]
@@ -138,6 +149,14 @@ def roll_year(year: int):
             pregame_spread = float(row["PregameSpread"]) # Note this is from the home perspective
             pregame_total = row["PregameTotal"]
 
+            # sequenced data for both teams
+            seq_features = ["Result"]
+            home_results_window = [
+                game[col] for col in seq_features for game in games_history[home][-GAMES_WINDOW_SZ:]
+            ]
+            away_results_window = [
+                game[col] for col in seq_features for game in games_history[away][-GAMES_WINDOW_SZ:]
+            ]
 
             home_datapoint["Home"] = 1
             home_datapoint["Result"] = row["PTS"]-row["PTS.1"] # Note this is OPPOSITE of spread
@@ -175,6 +194,10 @@ def roll_year(year: int):
                     home_datapoint[f"Starter{i}_BPM1"] = 0
                 starter_tot_bpm += home_datapoint[f"Starter{i}_BPM1"]
             home_datapoint[f"Starters_avg_BPM1"] = starter_tot_bpm/5
+            # Sequenced data
+            for i in range(GAMES_WINDOW_SZ):
+                games_ago = GAMES_WINDOW_SZ-i
+                home_datapoint[f"prev_{games_ago}_games_ago1"] = home_results_window[i]
 
             # home_datapoint["Team2"] = away
             home_datapoint["WinPct2"] = team_stats[away]["W"]/(team_stats[away]["W"]+team_stats[away]["L"])
@@ -208,6 +231,10 @@ def roll_year(year: int):
                     home_datapoint[f"Starter{i}_BPM2"] = 0
                 starter_tot_bpm += home_datapoint[f"Starter{i}_BPM2"]
             home_datapoint[f"Starters_avg_BPM2"] = starter_tot_bpm/5
+            # Sequenced data
+            for i in range(GAMES_WINDOW_SZ):
+                games_ago = GAMES_WINDOW_SZ-i
+                home_datapoint[f"prev_{games_ago}_games_ago2"] = away_results_window[i]
 
 
             away_datapoint["Home"] = 0
@@ -246,6 +273,10 @@ def roll_year(year: int):
                     away_datapoint[f"Starter{i}_BPM1"] = 0
                 starter_tot_bpm += away_datapoint[f"Starter{i}_BPM1"]
             away_datapoint[f"Starters_avg_BPM1"] = starter_tot_bpm/5
+            # Sequenced data
+            for i in range(GAMES_WINDOW_SZ):
+                games_ago = GAMES_WINDOW_SZ-i
+                home_datapoint[f"prev_{games_ago}_games_ago1"] = away_results_window[i]
 
             # away_datapoint["Team2"] = home
             away_datapoint["WinPct2"] = team_stats[home]["W"]/(team_stats[home]["W"]+team_stats[home]["L"])
@@ -279,10 +310,24 @@ def roll_year(year: int):
                     away_datapoint[f"Starter{i}_BPM2"] = 0
                 starter_tot_bpm += away_datapoint[f"Starter{i}_BPM2"]
             away_datapoint[f"Starters_avg_BPM2"] = starter_tot_bpm/5
+            # Sequenced data
+            for i in range(GAMES_WINDOW_SZ):
+                games_ago = GAMES_WINDOW_SZ-i
+                home_datapoint[f"prev_{games_ago}_games_ago2"] = home_results_window[i]
             
             df_out = pd.concat([df_out, pd.DataFrame([home_datapoint])], ignore_index=True)
             df_out = pd.concat([df_out, pd.DataFrame([away_datapoint])], ignore_index=True)
 
+        # Rolling data
+        # Store only subset of stats
+        home_data = {
+            "Result": row["Result"]
+        }
+        away_data = {
+            "Result": -row["Result"]
+        }
+        games_history[home].append(home_data)
+        games_history[away].append(away_data)
 
         # Update record
         result = row["Result"]
