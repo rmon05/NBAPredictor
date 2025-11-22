@@ -13,7 +13,7 @@ import numpy as np
 
 
 # Paths
-GAMES_WINDOW_SZ = 5
+GAMES_WINDOW_SZ = 10
 data_dir = Path(__file__).parent / "../data"
     
 class FNN(nn.Module):
@@ -417,33 +417,33 @@ def main():
     X_test_static_tensor, X_test_seq_team_tensor, X_test_seq_opp_tensor, y_test_tensor = wd.to_tensor()
 
 
-    # TEST OUTPUT PRINT
-    print(torch.isnan(X_train_static_tensor).any())
-    print(torch.isnan(X_test_static_tensor).any())
+    # # TEST OUTPUT PRINT
+    # print(torch.isnan(X_train_static_tensor).any())
+    # print(torch.isnan(X_test_static_tensor).any())
 
-    def sanity_check_tensor(name, tensor):
-        print(f"\n{name}:")
-        print(f"  shape: {tensor.shape}")
-        # print(f"  dtype: {tensor.dtype}")
-        # try:
-        #     print(f"  min:   {tensor.min().item():.4f}")
-        #     print(f"  max:   {tensor.max().item():.4f}")
-        # except:
-        #     print("  (min/max not available)")
-        # print(f"  sample: {tensor[0]}\n")
+    # def sanity_check_tensor(name, tensor):
+    #     print(f"\n{name}:")
+    #     print(f"  shape: {tensor.shape}")
+    #     # print(f"  dtype: {tensor.dtype}")
+    #     # try:
+    #     #     print(f"  min:   {tensor.min().item():.4f}")
+    #     #     print(f"  max:   {tensor.max().item():.4f}")
+    #     # except:
+    #     #     print("  (min/max not available)")
+    #     # print(f"  sample: {tensor[0]}\n")
 
 
-    print("=== Sanity Check: Train Tensors ===")
-    sanity_check_tensor("X_train_static_tensor", X_train_static_tensor)
-    sanity_check_tensor("X_train_seq_team_tensor", X_train_seq_team_tensor)
-    sanity_check_tensor("X_train_seq_opp_tensor", X_train_seq_opp_tensor)
-    sanity_check_tensor("y_train_tensor", y_train_tensor)
+    # print("=== Sanity Check: Train Tensors ===")
+    # sanity_check_tensor("X_train_static_tensor", X_train_static_tensor)
+    # sanity_check_tensor("X_train_seq_team_tensor", X_train_seq_team_tensor)
+    # sanity_check_tensor("X_train_seq_opp_tensor", X_train_seq_opp_tensor)
+    # sanity_check_tensor("y_train_tensor", y_train_tensor)
 
-    print("=== Sanity Check: Test Tensors ===")
-    sanity_check_tensor("X_test_static_tensor", X_test_static_tensor)
-    sanity_check_tensor("X_test_seq_team_tensor", X_test_seq_team_tensor)
-    sanity_check_tensor("X_test_seq_opp_tensor", X_test_seq_opp_tensor)
-    sanity_check_tensor("y_test_tensor", y_test_tensor)
+    # print("=== Sanity Check: Test Tensors ===")
+    # sanity_check_tensor("X_test_static_tensor", X_test_static_tensor)
+    # sanity_check_tensor("X_test_seq_team_tensor", X_test_seq_team_tensor)
+    # sanity_check_tensor("X_test_seq_opp_tensor", X_test_seq_opp_tensor)
+    # sanity_check_tensor("y_test_tensor", y_test_tensor)
 
 
     train_dataset = TensorDataset(
