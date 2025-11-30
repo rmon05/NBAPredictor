@@ -24,8 +24,9 @@ E:\NBAPredictor\venv\Scripts\python.exe -m pip freeze > requirements.lock
 
 
 # ML
-E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\fnn.py
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\rnn.py
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\xgb.py
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\team_strengths.py
 
 # Common Errors
 OSError: [WinError 1114] A dynamic link library (DLL) initialization routine failed. Error loading "E:\NBAPredictor\venv\Lib\site-packages\torch\lib\c10.dll" or one of its dependencies.

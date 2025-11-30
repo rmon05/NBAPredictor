@@ -6,10 +6,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 import pandas as pd
 import numpy as np
+from team_strengths import TeamStrengthCalculator
 
 
 # Paths
@@ -17,24 +19,6 @@ import numpy as np
 DATA_THRESHOLD = 10
 GAMES_WINDOW_SZ = 10
 data_dir = Path(__file__).parent / "../data"
-    
-class FNN(nn.Module):
-    def __init__(self, input_size, hidden_size):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_size, 64),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, hidden_size)
-        )
-
-    def forward(self, input):
-        return self.net(input)
     
 class GRU(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -48,47 +32,64 @@ class GRU(nn.Module):
         return hidden
     
 class HybridNN(nn.Module):
-    def __init__(self, fnn_input_size, fnn_hidden_size, gru_input_size, gru_hidden_size):
+    def __init__(self, 
+                 static_input_size, static_hidden_size, 
+                 metric_input_size, metric_hidden_size,
+                 starter_input_size, starter_hidden_size, 
+                 gru_input_size, gru_hidden_size):
         super().__init__()
-        self.fnn = FNN(fnn_input_size, fnn_hidden_size)
+        self.static = nn.Linear(static_input_size, static_hidden_size)
+        self.metric = nn.Linear(metric_input_size, metric_hidden_size)
+        self.starter = nn.Linear(starter_input_size, starter_hidden_size)
         self.gru_team = GRU(gru_input_size, gru_hidden_size)
         self.gru_opp = GRU(gru_input_size, gru_hidden_size)
-        self.fc_top = nn.Linear(2*gru_hidden_size+fnn_hidden_size, 1)
+        self.fc_top = nn.Linear(2*gru_hidden_size+metric_hidden_size+static_hidden_size+starter_hidden_size, 1)
 
-    def forward(self, static_input, team_seq, opp_seq):
-        hidden_fnn = self.fnn(static_input)
+    def forward(self, static_input, metric_input, starter_input, team_seq, opp_seq):
+        hidden_static = self.static(static_input)
+        hidden_metric = self.metric(metric_input)
+        hidden_starter = self.starter(starter_input)    
         hidden_team = self.gru_team(team_seq)
         hidden_opp = self.gru_opp(opp_seq)
+
         
-        # feed all into final top fc layer: (batch, hidden_size*2)
-        combined = torch.cat([hidden_fnn, hidden_team, hidden_opp], dim=1)  
+        # feed into final top fc layer
+        combined = torch.cat([hidden_static, hidden_metric, hidden_starter, hidden_team, hidden_opp], dim=1)  
         out = self.fc_top(combined)
 
         # DONT squeeze for now since y_batch is (batch, 1) 
+        # # (batch,1) --> (batch,)
+        # # return out.squeeze(1)
         return out
-        # (batch,1) --> (batch,)
-        # return out.squeeze(1)
 
     
 class WindowedDataset:
     # Clean this up!
     def __init__(self):
         self.X_train_static = np.array([])
+        self.X_train_metric = np.array([])
+        self.X_train_starter = np.array([])
         self.X_train_seq_team = np.array([])
         self.X_train_seq_opp = np.array([])
         self.y_train = np.array([])
         self.X_test_static = np.array([])
+        self.X_test_metric = np.array([])
+        self.X_test_starter = np.array([])
         self.X_test_seq_team = np.array([])
         self.X_test_seq_opp = np.array([])
         self.y_test = np.array([])
 
         self.X_list_train_static = []
-        self.X_list_test_static = []
+        self.X_list_train_metric = []
+        self.X_list_train_starter = []
         self.X_list_train_seq_team = []
-        self.X_list_test_seq_team = []
         self.X_list_train_seq_opp = []
-        self.X_list_test_seq_opp = []
         self.y_list_train = []
+        self.X_list_test_static = []
+        self.X_list_test_metric = []
+        self.X_list_test_starter = []
+        self.X_list_test_seq_team = []
+        self.X_list_test_seq_opp = []
         self.y_list_test = []
 
     def _np_concat(self, curr, new):
@@ -105,14 +106,24 @@ class WindowedDataset:
         df_games["HomeBoxScores"] = df_games["HomeBoxScores"].apply(json.loads)
         df_games["AwayBoxScores"] = df_games["AwayBoxScores"].apply(json.loads)
 
-        # window data
+        # Datapoints
         X_list_static = []
+        X_list_metric = []
+        X_list_starter = []
         X_list_seq_team = []
         X_list_seq_opp = []
         y_list = []
+
+        # window data
         games_history = {}
+        # static data
         team_stats = {}
         player_stats = {}
+        # computed data
+        team_strengths = {team : 0 for team in df_games["Home"].unique()}
+        home_adv = 1.5
+        rest_effect = 1.5
+        tsc = TeamStrengthCalculator(df_games)
         for _, row in df_games.iterrows():
             home = row["Home"]
             away = row["Opp"]
@@ -125,17 +136,21 @@ class WindowedDataset:
             if not (home in team_stats):
                 team_stats[home] = {}               
                 team_stats[home]["PTSDiffTot"] = 0
-                team_stats[home]["PTSDiffTotAdjusted"] = 0
                 team_stats[home]["Played"] = 0
                 team_stats[home]["W"] = 0
                 team_stats[home]["L"] = 0
+                team_stats[home]["BenchAvgBPM"] = 0
+                team_stats[home]["BenchTotBPM"] = 0
+                team_stats[home]["BenchMinutes"] = 0
             if not (away in team_stats):
                 team_stats[away] = {}
                 team_stats[away]["PTSDiffTot"] = 0
-                team_stats[away]["PTSDiffTotAdjusted"] = 0
                 team_stats[away]["Played"] = 0
                 team_stats[away]["W"] = 0
                 team_stats[away]["L"] = 0
+                team_stats[away]["BenchAvgBPM"] = 0
+                team_stats[away]["BenchTotBPM"] = 0
+                team_stats[away]["BenchMinutes"] = 0
 
             # Init sequence
             if home not in games_history:
@@ -143,48 +158,103 @@ class WindowedDataset:
             if away not in games_history:
                 games_history[away] = []
 
+            # Backfill team strengths
+            if row["Date"] > tsc.get_next_date():
+                tsc.process_day()
+                team_strengths, home_adv, rest_effect = tsc.calc_team_strengths()
+
             # Windowed datapoint
             has_rest_data = not (pd.isna(row["RestHome"]) or pd.isna(row["RestOpp"]))
+            has_bet_data = not pd.isna(row["PregameSpread"])
             if len(games_history[home]) >= GAMES_WINDOW_SZ \
                 and len(games_history[away]) >= GAMES_WINDOW_SZ \
                 and has_rest_data \
+                and has_bet_data \
                 and team_stats[home]["Played"] >= DATA_THRESHOLD:
-                # TODO match up the game details
-                # windowed_datapoint["Date"] = row["Date"]
-                # windowed_datapoint["Home"] = home
-                # windowed_datapoint["Away"] = away
 
                 # Static data for both teams
                 home_location = 1
-                away_location = 0
+                away_location = -1
                 home_pts_diff = team_stats[home]["PTSDiffTot"]/team_stats[home]["Played"]
                 away_pts_diff = team_stats[away]["PTSDiffTot"]/team_stats[away]["Played"]
-                home_pts_diff_adj = team_stats[home]["PTSDiffTotAdjusted"]/team_stats[home]["Played"]
-                away_pts_diff_adj = team_stats[away]["PTSDiffTotAdjusted"]/team_stats[away]["Played"]
+                home_strength = team_strengths[home]
+                away_strength = team_strengths[away]
+                home_bench_bpm_pg = team_stats[home]["BenchTotBPM"]/team_stats[home]["Played"]
+                away_bench_bpm_pg = team_stats[away]["BenchTotBPM"]/team_stats[away]["Played"]
+                home_bench_min_pg = team_stats[home]["BenchMinutes"]/team_stats[home]["Played"]
+                away_bench_min_pg = team_stats[away]["BenchMinutes"]/team_stats[away]["Played"]
+                home_bench_avgbpm_pg = team_stats[home]["BenchAvgBPM"]/team_stats[home]["Played"]
+                away_bench_avgbpm_pg = team_stats[away]["BenchAvgBPM"]/team_stats[away]["Played"]
                 home_rest = row["RestHome"]
                 away_rest = row["RestOpp"]
+                home_spread_ks = float(row["PregameSpread"])
+                away_spread_ks = -float(row["PregameSpread"])
+
+                # Grouped features (NOTE home must got at end to be unscaled)
                 home_static_features = [
-                    home_location, home_pts_diff, away_pts_diff, home_rest, away_rest
+                    home_rest, away_rest, home_location
                 ]
                 away_static_features = [
-                    away_location, away_pts_diff, home_pts_diff, away_rest, home_rest
+                    away_rest, home_rest, away_location
+                ]
+                home_metric_features = [
+                    # home_pts_diff, away_pts_diff,
+                    home_strength, away_strength,
+                    home_bench_avgbpm_pg, away_bench_avgbpm_pg,
+                    home_bench_min_pg, away_bench_min_pg,
+                    # home_bench_bpm_pg, away_bench_bpm_pg
+                    # home_spread_ks
+                ]
+                away_metric_features = [
+                    # away_pts_diff, home_pts_diff,
+                    away_strength, home_strength,
+                    away_bench_avgbpm_pg, home_bench_avgbpm_pg,
+                    away_bench_min_pg, home_bench_min_pg,
+                    # away_bench_bpm_pg, home_bench_bpm_pg
+                    # away_spread_ks
                 ]
                 # Assume 5 highest minute players are the starters
                 # Write data for both sides
                 # Make sure the player orders are correct for each datapoint!
+                home_starter_features = []
+                away_starter_features = []
                 for i in range(5):
                     player_team = home_box_scores[i]
                     player_opp = away_box_scores[i]
                     pid_team = player_team["Player-additional"]
                     pid_opp = player_opp["Player-additional"]
                     if pid_team in player_stats:
-                        home_static_features.append(player_stats[pid_team]["TotBPM"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotBPM"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotPTS"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotREB"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotAST"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotBLK"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotSTL"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotTOV"]/player_stats[pid_team]["GamesPlayed"])
                     else:
-                        home_static_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
                     if pid_opp in player_stats:
-                        away_static_features.append(player_stats[pid_opp]["TotBPM"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotBPM"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotPTS"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotREB"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotAST"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotBLK"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotSTL"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotTOV"]/player_stats[pid_opp]["GamesPlayed"])
                     else:
-                        away_static_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
 
                 for i in range(5):
                     player_team = away_box_scores[i]
@@ -192,20 +262,47 @@ class WindowedDataset:
                     pid_team = player_team["Player-additional"]
                     pid_opp = player_opp["Player-additional"]
                     if pid_team in player_stats:
-                        home_static_features.append(player_stats[pid_team]["TotBPM"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotBPM"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotPTS"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotREB"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotAST"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotBLK"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotSTL"]/player_stats[pid_team]["GamesPlayed"])
+                        home_starter_features.append(player_stats[pid_team]["TotTOV"]/player_stats[pid_team]["GamesPlayed"])
                     else:
-                        home_static_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
+                        home_starter_features.append(0)
                     if pid_opp in player_stats:
-                        away_static_features.append(player_stats[pid_opp]["TotBPM"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotBPM"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotPTS"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotREB"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotAST"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotBLK"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotSTL"]/player_stats[pid_opp]["GamesPlayed"])
+                        away_starter_features.append(player_stats[pid_opp]["TotTOV"]/player_stats[pid_opp]["GamesPlayed"])
                     else:
-                        away_static_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
+                        away_starter_features.append(0)
 
                 home_static = np.array(home_static_features)
                 away_static = np.array(away_static_features)
+                home_metric = np.array(home_metric_features)
+                away_metric = np.array(away_metric_features)
+                home_starter = np.array(home_starter_features)
+                away_starter = np.array(away_starter_features)
 
                 # Store sequenced data for both teams
-                # The normalization will have to be tweaked as well
-                seq_features = ["Result"]
+                seq_features = ["Result", "PregameStrength", "OppPregameStrength", "Rest", "OppRest", "Home"]
                 home_window = np.array([
                     [game[col] for col in seq_features] for game in games_history[home][-GAMES_WINDOW_SZ:]
                 ], dtype=np.float32)
@@ -214,40 +311,39 @@ class WindowedDataset:
                 ], dtype=np.float32)
                 # Write datapoint for both sides
                 X_list_static.append(home_static)
+                X_list_metric.append(home_metric)
+                X_list_starter.append(home_starter)
                 X_list_seq_team.append(home_window)
                 X_list_seq_opp.append(away_window)
                 y_list.append(result_home)
                 X_list_static.append(away_static)
+                X_list_metric.append(away_metric)
+                X_list_starter.append(away_starter)
                 X_list_seq_team.append(away_window)
                 X_list_seq_opp.append(home_window)
                 y_list.append(result_away)
             
             # UPDATE
-            # adjusted result (WIP)
-            if team_stats[away]["Played"]:
-                if result_home > 0:
-                    result_home_adjusted = result_home*float(team_stats[away]["W"])/float(team_stats[away]["Played"])
-                else:
-                    result_home_adjusted = result_home*float(team_stats[away]["L"])/float(team_stats[away]["Played"])
-            else:
-                result_home_adjusted = result_home*0.5
-
-            if team_stats[home]["Played"]:
-                if result_away > 0:
-                    result_away_adjusted = result_away*float(team_stats[home]["W"])/float(team_stats[home]["Played"])
-                else:
-                    result_away_adjusted = result_away*float(team_stats[home]["L"])/float(team_stats[home]["Played"])
-            else:
-                result_away_adjusted = result_away*0.5
-
             # Store only subset of stats
+            # Note that rest may be NaN, use 1 as a replacement for now
+            if not has_rest_data:
+                row["RestHome"] = 1
+                row["RestOpp"] = 1
             home_data = {
                 "Result": result_home,
-                "ResultAdjusted": result_home_adjusted
+                "PregameStrength": team_strengths[home],
+                "OppPregameStrength": team_strengths[away],
+                "Home": 1,
+                "Rest": row["RestHome"],
+                "OppRest": row["RestOpp"],
             }
             away_data = {
                 "Result": result_away,
-                "ResultAdjusted": result_away_adjusted
+                "PregameStrength": team_strengths[away],
+                "OppPregameStrength": team_strengths[home],
+                "Home": -1,
+                "Rest": row["RestHome"],
+                "OppRest": row["RestOpp"],
             }
             games_history[home].append(home_data)
             games_history[away].append(away_data)
@@ -255,56 +351,100 @@ class WindowedDataset:
 
             # Update static accumulated
             team_stats[home]["PTSDiffTot"] += result_home
-            team_stats[home]["PTSDiffTotAdjusted"] += result_home_adjusted                
             team_stats[home]["Played"] += 1
             team_stats[home]["W"] += (1 if result_home > 0 else 0)
             team_stats[home]["L"] += (1 if result_home< 0 else 0)
 
             team_stats[away]["PTSDiffTot"] += result_away
-            team_stats[away]["PTSDiffTotAdjusted"] += result_away_adjusted                
             team_stats[away]["Played"] += 1
             team_stats[away]["W"] += (1 if result_away > 0 else 0)
             team_stats[away]["L"] += (1 if result_away < 0 else 0)
 
             # Box score stats
-            for player in home_box_scores:
+            home_bench_bpm_tot = 0
+            home_bench_players = 0
+            home_bench_minutes = 0
+            for i in range(len(home_box_scores)):
+                player = home_box_scores[i]
                 pid = player["Player-additional"]
                 if not (pid in player_stats):
                     player_stats[pid] = {}
                     player_stats[pid]["GamesPlayed"] = 0
                     player_stats[pid]["TotBPM"] = 0
+                    player_stats[pid]["TotPTS"] = 0
+                    player_stats[pid]["TotAST"] = 0
+                    player_stats[pid]["TotREB"] = 0
+                    player_stats[pid]["TotOREB"] = 0
+                    player_stats[pid]["TotSTL"] = 0
+                    player_stats[pid]["TotBLK"] = 0
+                    player_stats[pid]["TotTOV"] = 0
+
 
                 player_stats[pid]["GamesPlayed"] += 1
                 player_stats[pid]["TotBPM"] += player["BPM"]
+                player_stats[pid]["TotPTS"] += player["PTS"]
+                player_stats[pid]["TotAST"] += player["AST"]
+                player_stats[pid]["TotREB"] += player["TRB"]
+                player_stats[pid]["TotOREB"] += player["ORB"]
+                player_stats[pid]["TotSTL"] += player["STL"]
+                player_stats[pid]["TotBLK"] += player["BLK"]
+                player_stats[pid]["TotTOV"] += player["TOV"]
+                if i >= 5:
+                    # Bench player 
+                    # TBD add this stat to rolling if it makes an impact!
+                    home_bench_bpm_tot += player["BPM"]
+                    home_bench_players += 1
+                    home_bench_minutes += player["MP"]
+            team_stats[home]["BenchAvgBPM"] += home_bench_bpm_tot/home_bench_players
+            team_stats[home]["BenchTotBPM"] += home_bench_bpm_tot
+            team_stats[home]["BenchMinutes"] += home_bench_minutes
 
-                # team_stats[home]["AST"] += player["AST"]
-                # team_stats[home]["ORB"] += player["ORB"]
-                # team_stats[away]["OppDRB"] += player["DRB"]
-                # team_stats[home]["STL"] += player["STL"]
-                # team_stats[home]["BLK"] += player["BLK"]
-                # team_stats[home]["TOV"] += player["TOV"]
-            
-            for player in away_box_scores:
+            away_bench_bpm_tot = 0
+            away_bench_players = 0
+            away_bench_minutes = 0
+            for i in range(len(away_box_scores)):
+                player = away_box_scores[i]
                 pid = player["Player-additional"]
                 if not (pid in player_stats):
                     player_stats[pid] = {}
                     player_stats[pid]["GamesPlayed"] = 0
                     player_stats[pid]["TotBPM"] = 0
+                    player_stats[pid]["TotPTS"] = 0
+                    player_stats[pid]["TotAST"] = 0
+                    player_stats[pid]["TotREB"] = 0
+                    player_stats[pid]["TotOREB"] = 0
+                    player_stats[pid]["TotSTL"] = 0
+                    player_stats[pid]["TotBLK"] = 0
+                    player_stats[pid]["TotTOV"] = 0
+
                 
                 player_stats[pid]["GamesPlayed"] += 1
                 player_stats[pid]["TotBPM"] += player["BPM"]
-
-                # team_stats[away]["AST"] += player["AST"]
-                # team_stats[away]["ORB"] += player["ORB"]
-                # team_stats[home]["OppDRB"] += player["DRB"]
-                # team_stats[away]["STL"] += player["STL"]
-                # team_stats[away]["BLK"] += player["BLK"]
-                # team_stats[away]["TOV"] += player["TOV"]
+                player_stats[pid]["TotPTS"] += player["PTS"]
+                player_stats[pid]["TotAST"] += player["AST"]
+                player_stats[pid]["TotREB"] += player["TRB"]
+                player_stats[pid]["TotOREB"] += player["ORB"]
+                player_stats[pid]["TotSTL"] += player["STL"]
+                player_stats[pid]["TotBLK"] += player["BLK"]
+                player_stats[pid]["TotTOV"] += player["TOV"]
+                if i >= 5:
+                    # Bench player
+                    # TBD add this stat to rolling if it makes an impact!
+                    away_bench_bpm_tot += player["BPM"]
+                    away_bench_players += 1
+                    away_bench_minutes += player["MP"]
+            team_stats[away]["BenchAvgBPM"] += away_bench_bpm_tot/away_bench_players
+            team_stats[away]["BenchTotBPM"] += away_bench_bpm_tot
+            team_stats[away]["BenchMinutes"] += away_bench_minutes
 
         # Shuffled split 
         (
             X_list_train_static,
             X_list_test_static,
+            X_list_train_metric,
+            X_list_test_metric,
+            X_list_train_starter,
+            X_list_test_starter,
             X_list_train_seq_team,
             X_list_test_seq_team,
             X_list_train_seq_opp,
@@ -313,6 +453,8 @@ class WindowedDataset:
             y_list_test
         ) = train_test_split(
             X_list_static,
+            X_list_metric,
+            X_list_starter,
             X_list_seq_team,
             X_list_seq_opp,
             y_list,
@@ -324,6 +466,10 @@ class WindowedDataset:
         # Temp for comparison
         self.X_list_train_static.extend(X_list_train_static)
         self.X_list_test_static.extend(X_list_test_static)
+        self.X_list_train_metric.extend(X_list_train_metric)
+        self.X_list_test_metric.extend(X_list_test_metric)
+        self.X_list_train_starter.extend(X_list_train_starter)
+        self.X_list_test_starter.extend(X_list_test_starter)
         self.X_list_train_seq_team.extend(X_list_train_seq_team)
         self.X_list_test_seq_team.extend(X_list_test_seq_team)
         self.X_list_train_seq_opp.extend(X_list_train_seq_opp)
@@ -332,16 +478,29 @@ class WindowedDataset:
         self.y_list_test.extend(y_list_test)
 
     def to_tensor(self):
-        # Normalize ALL
+        # Make sure to ignore the Home column (last col) when scaling static
         scaler_X_static = StandardScaler()
-        X_train_static_scaled = scaler_X_static.fit_transform(np.stack(self.X_list_train_static, axis=0))
-        X_test_static_scaled = scaler_X_static.transform(np.stack(self.X_list_test_static, axis=0))
+        X_train_static_tbd = np.stack(self.X_list_train_static, axis=0)
+        X_test_static_tbd = np.stack(self.X_list_test_static, axis=0)
+        X_train_static_scaled = scaler_X_static.fit_transform(X_train_static_tbd[:, :-1])
+        X_test_static_scaled = scaler_X_static.transform(X_test_static_tbd[:, :-1])
 
-        scaler_y = StandardScaler()
-        y_train_scaled = scaler_y.fit_transform(np.array(self.y_list_train).reshape(-1, 1))
-        y_test_scaled = scaler_y.transform(np.array(self.y_list_test).reshape(-1, 1))
+        # Add home back
+        X_train_static_scaled = np.concatenate([X_train_static_scaled, X_train_static_tbd[:, -1:]], axis=1)
+        X_test_static_scaled = np.concatenate([X_test_static_scaled, X_test_static_tbd[:, -1:]], axis=1)
+
+        # Scale X metric normally
+        scaler_X_metric = StandardScaler()
+        X_train_metric_scaled = scaler_X_metric.fit_transform(np.stack(self.X_list_train_metric, axis=0))
+        X_test_metric_scaled = scaler_X_metric.transform(np.stack(self.X_list_test_metric, axis=0))
+
+        scaler_X_starter = StandardScaler()
+        X_train_starter_scaled = scaler_X_starter.fit_transform(np.stack(self.X_list_train_starter, axis=0))
+        X_test_starter_scaled = scaler_X_starter.transform(np.stack(self.X_list_test_starter, axis=0))
 
         # Stack, Flatten, scale, unflatten for seq data
+        scaler_X_seq_team = StandardScaler()
+        scaler_X_seq_opp = StandardScaler()
         X_train_seq_team_tbd = np.stack(self.X_list_train_seq_team, axis=0)
         X_test_seq_team_tbd = np.stack(self.X_list_test_seq_team, axis=0)
         X_train_seq_opp_tbd = np.stack(self.X_list_train_seq_opp, axis=0)
@@ -350,44 +509,65 @@ class WindowedDataset:
         N_train, seq_len, num_feat = X_train_seq_team_tbd.shape
         N_test, seq_len, num_feat = X_test_seq_team_tbd.shape
 
-        X_train_seq_team_tbd = X_train_seq_team_tbd.reshape(-1, 1)
-        X_test_seq_team_tbd = X_test_seq_team_tbd.reshape(-1, 1)
-        X_train_seq_opp_tbd = X_train_seq_opp_tbd.reshape(-1, 1)
-        X_test_seq_opp_tbd = X_test_seq_opp_tbd.reshape(-1, 1)
+        X_train_seq_team_tbd = X_train_seq_team_tbd.reshape(N_train*seq_len, num_feat)
+        X_test_seq_team_tbd = X_test_seq_team_tbd.reshape(N_test*seq_len, num_feat)
+        X_train_seq_opp_tbd = X_train_seq_opp_tbd.reshape(N_train*seq_len, num_feat)
+        X_test_seq_opp_tbd = X_test_seq_opp_tbd.reshape(N_test*seq_len, num_feat)
 
-        X_train_seq_team_scaled = scaler_y.transform(X_train_seq_team_tbd)
-        X_test_seq_team_scaled = scaler_y.transform(X_test_seq_team_tbd)
-        X_train_seq_opp_scaled = scaler_y.transform(X_train_seq_opp_tbd)
-        X_test_seq_opp_scaled = scaler_y.transform(X_test_seq_opp_tbd)
+        # Make sure to ignore the Home column (last col) when scaling        
+        X_train_seq_team_scaled = scaler_X_seq_team.fit_transform(X_train_seq_team_tbd[:, :-1])
+        X_test_seq_team_scaled = scaler_X_seq_team.transform(X_test_seq_team_tbd[:, :-1])
+        X_train_seq_opp_scaled = scaler_X_seq_opp.fit_transform(X_train_seq_opp_tbd[:, :-1])
+        X_test_seq_opp_scaled = scaler_X_seq_opp.transform(X_test_seq_opp_tbd[:, :-1])
+        # Add home back
+        X_train_seq_team_scaled = np.concatenate([X_train_seq_team_scaled, X_train_seq_team_tbd[:, -1:]], axis=1)
+        X_test_seq_team_scaled = np.concatenate([X_test_seq_team_scaled, X_test_seq_team_tbd[:, -1:]], axis=1)
+        X_train_seq_opp_scaled = np.concatenate([X_train_seq_opp_scaled, X_train_seq_opp_tbd[:, -1:]], axis=1)
+        X_test_seq_opp_scaled = np.concatenate([X_test_seq_opp_scaled, X_test_seq_opp_tbd[:, -1:]], axis=1)
 
         X_train_seq_team_scaled = X_train_seq_team_scaled.reshape(N_train, seq_len, num_feat)
         X_test_seq_team_scaled = X_test_seq_team_scaled.reshape(N_test, seq_len, num_feat)
         X_train_seq_opp_scaled = X_train_seq_opp_scaled.reshape(N_train, seq_len, num_feat)
         X_test_seq_opp_scaled = X_test_seq_opp_scaled.reshape(N_test, seq_len, num_feat)
 
+        # Scale y normally
+        scaler_y = StandardScaler()
+        y_train_scaled = scaler_y.fit_transform(np.array(self.y_list_train).reshape(-1, 1))
+        y_test_scaled = scaler_y.transform(np.array(self.y_list_test).reshape(-1, 1))
+
         # concat with rest of data
         self.X_train_static    = self._np_concat(self.X_train_static, X_train_static_scaled)
+        self.X_train_metric    = self._np_concat(self.X_train_metric, X_train_metric_scaled)
+        self.X_train_starter   = self._np_concat(self.X_train_starter, X_train_starter_scaled)
         self.X_train_seq_team  = self._np_concat(self.X_train_seq_team, X_train_seq_team_scaled)
         self.X_train_seq_opp   = self._np_concat(self.X_train_seq_opp, X_train_seq_opp_scaled)
         self.y_train           = self._np_concat(self.y_train, y_train_scaled)
         self.X_test_static     = self._np_concat(self.X_test_static, X_test_static_scaled)
+        self.X_test_metric     = self._np_concat(self.X_test_metric, X_test_metric_scaled)
+        self.X_test_starter    = self._np_concat(self.X_test_starter, X_test_starter_scaled)
         self.X_test_seq_team   = self._np_concat(self.X_test_seq_team, X_test_seq_team_scaled)
         self.X_test_seq_opp    = self._np_concat(self.X_test_seq_opp, X_test_seq_opp_scaled)
         self.y_test            = self._np_concat(self.y_test, y_test_scaled)
 
         # convert to tensors
         X_train_static_tensor = torch.tensor(self.X_train_static, dtype=torch.float32)
+        X_train_metric_tensor = torch.tensor(self.X_train_metric, dtype=torch.float32)
+        X_train_starter_tensor = torch.tensor(self.X_train_starter, dtype=torch.float32)
         X_train_seq_team_tensor = torch.tensor(self.X_train_seq_team, dtype=torch.float32)
         X_train_seq_opp_tensor = torch.tensor(self.X_train_seq_opp, dtype=torch.float32)
         y_train_tensor = torch.tensor(self.y_train, dtype=torch.float32)
         X_test_static_tensor = torch.tensor(self.X_test_static, dtype=torch.float32)
+        X_test_metric_tensor = torch.tensor(self.X_test_metric, dtype=torch.float32)
+        X_test_starter_tensor = torch.tensor(self.X_test_starter, dtype=torch.float32)
         X_test_seq_team_tensor = torch.tensor(self.X_test_seq_team, dtype=torch.float32)
         X_test_seq_opp_tensor = torch.tensor(self.X_test_seq_opp, dtype=torch.float32)
         y_test_tensor = torch.tensor(self.y_test, dtype=torch.float32)
 
         return \
-        X_train_static_tensor, X_train_seq_team_tensor, X_train_seq_opp_tensor, y_train_tensor, \
-        X_test_static_tensor, X_test_seq_team_tensor, X_test_seq_opp_tensor, y_test_tensor
+        X_train_static_tensor, X_train_metric_tensor, X_train_starter_tensor, \
+        X_train_seq_team_tensor, X_train_seq_opp_tensor, y_train_tensor, \
+        X_test_static_tensor, X_test_metric_tensor, X_test_starter_tensor, \
+        X_test_seq_team_tensor, X_test_seq_opp_tensor, y_test_tensor
 
 
         
@@ -410,47 +590,53 @@ def main():
 
     # Train and test
     # For GRU split into home and away sequences
-    X_train_static_tensor, X_train_seq_team_tensor, X_train_seq_opp_tensor, y_train_tensor, \
-    X_test_static_tensor, X_test_seq_team_tensor, X_test_seq_opp_tensor, y_test_tensor = wd.to_tensor()
+    X_train_static_tensor, X_train_metric_tensor, X_train_starter_tensor, \
+    X_train_seq_team_tensor, X_train_seq_opp_tensor, y_train_tensor, \
+    X_test_static_tensor, X_test_metric_tensor, X_test_starter_tensor, \
+    X_test_seq_team_tensor, X_test_seq_opp_tensor, y_test_tensor = wd.to_tensor()
 
 
-    # TEST OUTPUT PRINT
-    print(torch.isnan(X_train_static_tensor).any())
-    print(torch.isnan(X_test_static_tensor).any())
+    # # TEST OUTPUT PRINT
+    # print(torch.isnan(X_train_static_tensor).any())
+    # print(torch.isnan(X_test_static_tensor).any())
 
-    def sanity_check_tensor(name, tensor):
-        print(f"\n{name}:")
-        print(f"  shape: {tensor.shape}")
-        # print(f"  dtype: {tensor.dtype}")
-        # try:
-        #     print(f"  min:   {tensor.min().item():.4f}")
-        #     print(f"  max:   {tensor.max().item():.4f}")
-        # except:
-        #     print("  (min/max not available)")
-        # print(f"  sample: {tensor[0]}\n")
+    # def sanity_check_tensor(name, tensor):
+    #     print(f"\n{name}:")
+    #     print(f"  shape: {tensor.shape}")
+    #     # print(f"  dtype: {tensor.dtype}")
+    #     # try:
+    #     #     print(f"  min:   {tensor.min().item():.4f}")
+    #     #     print(f"  max:   {tensor.max().item():.4f}")
+    #     # except:
+    #     #     print("  (min/max not available)")
+    #     # print(f"  sample: {tensor[0]}\n")
 
 
-    print("=== Sanity Check: Train Tensors ===")
-    sanity_check_tensor("X_train_static_tensor", X_train_static_tensor)
-    sanity_check_tensor("X_train_seq_team_tensor", X_train_seq_team_tensor)
-    sanity_check_tensor("X_train_seq_opp_tensor", X_train_seq_opp_tensor)
-    sanity_check_tensor("y_train_tensor", y_train_tensor)
+    # print("=== Sanity Check: Train Tensors ===")
+    # sanity_check_tensor("X_train_static_tensor", X_train_static_tensor)
+    # sanity_check_tensor("X_train_seq_team_tensor", X_train_seq_team_tensor)
+    # sanity_check_tensor("X_train_seq_opp_tensor", X_train_seq_opp_tensor)
+    # sanity_check_tensor("y_train_tensor", y_train_tensor)
 
-    print("=== Sanity Check: Test Tensors ===")
-    sanity_check_tensor("X_test_static_tensor", X_test_static_tensor)
-    sanity_check_tensor("X_test_seq_team_tensor", X_test_seq_team_tensor)
-    sanity_check_tensor("X_test_seq_opp_tensor", X_test_seq_opp_tensor)
-    sanity_check_tensor("y_test_tensor", y_test_tensor)
+    # print("=== Sanity Check: Test Tensors ===")
+    # sanity_check_tensor("X_test_static_tensor", X_test_static_tensor)
+    # sanity_check_tensor("X_test_seq_team_tensor", X_test_seq_team_tensor)
+    # sanity_check_tensor("X_test_seq_opp_tensor", X_test_seq_opp_tensor)
+    # sanity_check_tensor("y_test_tensor", y_test_tensor)
 
 
     train_dataset = TensorDataset(
         X_train_static_tensor,
+        X_train_metric_tensor,
+        X_train_starter_tensor,
         X_train_seq_team_tensor,
         X_train_seq_opp_tensor,
         y_train_tensor
     )
     test_dataset = TensorDataset(
         X_test_static_tensor,
+        X_test_metric_tensor,
+        X_test_starter_tensor,
         X_test_seq_team_tensor,
         X_test_seq_opp_tensor,
         y_test_tensor
@@ -462,10 +648,14 @@ def main():
     EPOCHS = 30
     LR = 0.001
     static_input_size = X_train_static_tensor.shape[1]
+    metric_input_size = X_train_metric_tensor.shape[1]
+    starter_input_size = X_train_starter_tensor.shape[1]
     seq_input_size = X_train_seq_team_tensor.shape[2]
     model = HybridNN(
-        fnn_input_size=static_input_size, fnn_hidden_size=8, 
-        gru_input_size=seq_input_size, gru_hidden_size=8
+        static_input_size=static_input_size, static_hidden_size=1, 
+        metric_input_size=metric_input_size, metric_hidden_size=1,
+        starter_input_size=starter_input_size, starter_hidden_size=1, 
+        gru_input_size=seq_input_size, gru_hidden_size=1
     )
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=LR)
@@ -474,10 +664,10 @@ def main():
     for epoch in range(EPOCHS):
         model.train()
         total_loss = 0
-        for static_batch, team_seq_batch, opp_seq_batch, y_batch in train_loader:
+        for static_batch, metric_batch, starter_batch, team_seq_batch, opp_seq_batch, y_batch in train_loader:
             # reset grads and forward pass
             optimizer.zero_grad()
-            outputs = model(static_batch, team_seq_batch, opp_seq_batch)
+            outputs = model(static_batch, metric_batch, starter_batch, team_seq_batch, opp_seq_batch)
             # compute MSE as criterion and backprop
             loss = criterion(outputs, y_batch)
             loss.backward()
@@ -493,10 +683,13 @@ def main():
     with torch.no_grad():
         y_pred = []
         y_true = []
-        for static_batch, team_seq_batch, opp_seq_batch, y_batch in test_loader:
-            preds = model(static_batch, team_seq_batch, opp_seq_batch)
-            y_pred.extend(preds.tolist())
-            y_true.extend(y_batch.tolist())
+
+        for static_batch, metric_batch, starter_batch, team_seq_batch, opp_seq_batch, y_batch in test_loader:
+            preds = model(static_batch, metric_batch, starter_batch, team_seq_batch, opp_seq_batch)
+            preds_list = preds.tolist()
+            true_list = y_batch.tolist()
+            y_pred.extend(preds_list)
+            y_true.extend(true_list)
 
         # Compute MSE
         y_pred_tensor = torch.tensor(y_pred)
