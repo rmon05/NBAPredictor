@@ -6,7 +6,7 @@ RAW_DIR = Path(__file__).parent / "../../data/raw/csv"
 PROCESSED_DIR = Path(__file__).parent / "../../data/raw/parquet"
 
 # List of expected CSV files per year
-CSV_FILES = ["boxScoreRaw.csv", "gamesRaw.csv", "playersRaw.csv"]
+CSV_FILES = ["boxScoreRaw.csv", "gamesRaw.csv"]
 
 def ingest_year(year: int):
     """Read CSVs for a given year and write them as Parquet, tracking time."""
