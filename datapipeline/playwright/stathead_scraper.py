@@ -55,7 +55,7 @@ def scrape_games(browser_context):
     output_path.mkdir(parents=True, exist_ok=True)
     output_file = output_path / "gamesRaw.csv"
     with open(output_file, "w", encoding="utf-8") as f:
-        f.write(csv_text)
+        f.write(csv_text + "\n")
 
     # while next page exists keep going!
     try:
@@ -103,7 +103,7 @@ def scrape_box_scores(browser_context):
     output_path.mkdir(parents=True, exist_ok=True)
     output_file = output_path / "boxScoreRaw.csv"
     with open(output_file, "w", encoding="utf-8") as f:
-        f.write(csv_text)
+        f.write(csv_text + "\n")
 
     # while next page exists keep going!
     try:

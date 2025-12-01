@@ -47,7 +47,7 @@ def ingest_year(year: int):
 
 
 def main():
-    years = [year for year in range(2015, 2026)]
+    years = [year for year in range(2015, 2027)]
     total_start = time.time()
     for year in years:
         ingest_year(year)
