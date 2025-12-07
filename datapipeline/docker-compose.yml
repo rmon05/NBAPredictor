@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:15
+    env_file: 
+      - path: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  airflow-webserver:
+    image: ${AIRFLOW_IMAGE_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__API__SECRET_KEY: "supersecret"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:Admin"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+    ports:
+      - "8080:8080"
+    command: api-server
+
+  airflow-scheduler:
+    image: ${AIRFLOW_IMAGE_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/airflow
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+    command: scheduler
+
+  airflow-dag-processor:
+
+    image: ${AIRFLOW_IMAGE_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/airflow
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+      AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags 
+    command: dag-processor
+
+volumes:
+  postgres-data:

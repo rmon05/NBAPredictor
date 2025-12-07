@@ -8,9 +8,9 @@ RUN apt-get update && \
 
 
 COPY requirements.txt requirements.txt
-COPY ./airflow /opt/airflow
-RUN chown -R airflow: /opt/airflow
-RUN chown -R airflow: requirements.txt
+COPY ./apps /opt/apps
+# RUN chown -R airflow: /opt/airflow
+# RUN chown -R airflow: requirements.txt
 
 USER airflow
 RUN pip install --no-cache-dir -r requirements.txt
