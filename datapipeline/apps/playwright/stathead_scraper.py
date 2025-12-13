@@ -11,7 +11,7 @@ load_dotenv()
 
 STATHEAD_USERNAME = os.getenv("STATHEAD_USERNAME")
 STATHEAD_PASSWORD = os.getenv("STATHEAD_PASSWORD")
-OUTPUT_DIR = Path(__file__).parent / "../../data/raw_scraped"
+OUTPUT_DIR = Path("/usr/local/airflow/data/raw")
 CURR_YEAR = 2026
 
 def login(browser_context):
@@ -135,7 +135,7 @@ def main():
     scraper.add_task(scrape_games)
     scraper.add_task(scrape_box_scores)
     # Set headless to false for debugging, true for production
-    scraper.scrape(headless=False) 
+    scraper.scrape(headless=True) 
 
 if __name__ == "__main__":
     main()

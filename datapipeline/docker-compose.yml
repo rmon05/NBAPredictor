@@ -22,13 +22,16 @@ services:
     env_file:
       - path: .env
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/airflow
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__API__SECRET_KEY: "supersecret"
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:Admin"
     volumes:
+      - ./apps:/opt/apps
       - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/config:/opt/airflow/config
+      - E:/NBAPredictor/data_airflow:/usr/local/airflow/data
     ports:
       - "8080:8080"
     command: api-server
@@ -41,14 +44,17 @@ services:
     env_file:
       - path: .env
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/airflow
     volumes:
+      - ./apps:/opt/apps
       - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/config:/opt/airflow/config
+      - E:/NBAPredictor/data_airflow:/usr/local/airflow/data
     command: scheduler
 
   airflow-dag-processor:
-
     image: ${AIRFLOW_IMAGE_NAME}
     depends_on:
       postgres:
@@ -56,12 +62,16 @@ services:
     env_file:
       - path: .env
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/airflow
       AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
       AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
     volumes:
-      - ./airflow/dags:/opt/airflow/dags 
+      - ./apps:/opt/apps
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/config:/opt/airflow/config
+      - E:/NBAPredictor/data_airflow:/usr/local/airflow/data
     command: dag-processor
 
 volumes:
