@@ -4,6 +4,7 @@ import json
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
+from joblib import dump
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,7 +19,9 @@ from team_strengths import TeamStrengthCalculator
 # NOTE: increasing data_threshold seems to hurt performance, look into it
 DATA_THRESHOLD = 10
 GAMES_WINDOW_SZ = 10
-data_dir = Path(__file__).parent / "../data"
+DATA_DIR = Path(__file__).parent / "../data"
+SCALERS_DIR = Path("E:/NBAPredictor/ml/scalers")
+MODELS_DIR = Path("E:/NBAPredictor/ml/models")
     
 class GRU(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -190,7 +193,7 @@ class WindowedDataset:
                 home_spread_ks = float(row["PregameSpread"])
                 away_spread_ks = -float(row["PregameSpread"])
 
-                # Grouped features (NOTE home must got at end to be unscaled)
+                # Grouped features (NOTE home must go at end to be unscaled)
                 home_static_features = [
                     home_rest, away_rest, home_location
                 ]
@@ -563,6 +566,14 @@ class WindowedDataset:
         X_test_seq_opp_tensor = torch.tensor(self.X_test_seq_opp, dtype=torch.float32)
         y_test_tensor = torch.tensor(self.y_test, dtype=torch.float32)
 
+        # Store scalers
+        dump(scaler_X_static, SCALERS_DIR / "scaler_X_static.joblib")
+        dump(scaler_X_metric, SCALERS_DIR / "scaler_X_metric.joblib")
+        dump(scaler_X_starter, SCALERS_DIR / "scaler_X_starter.joblib")
+        dump(scaler_X_seq_team, SCALERS_DIR / "scaler_X_seq_team.joblib")
+        dump(scaler_X_seq_opp, SCALERS_DIR / "scaler_X_seq_opp.joblib")
+        dump(scaler_y, SCALERS_DIR / "scaler_y.joblib")
+
         return \
         X_train_static_tensor, X_train_metric_tensor, X_train_starter_tensor, \
         X_train_seq_team_tensor, X_train_seq_opp_tensor, y_train_tensor, \
@@ -581,7 +592,7 @@ def main():
     # Add data per year
     for year in years:
         start_year = time.time()
-        joined_games_path = data_dir / f"joined/parquet/{year}/gamesJoined.parquet"
+        joined_games_path = DATA_DIR / f"joined/parquet/{year}/gamesJoined.parquet"
         df_games = pd.read_parquet(joined_games_path)
         wd.add_games(df_games)
         end_year = time.time()
@@ -696,6 +707,10 @@ def main():
         y_true_tensor = torch.tensor(y_true)
         mse = nn.functional.mse_loss(y_pred_tensor, y_true_tensor)
         print(f"MSE: {mse:.4f}")
+
+    # Save model
+    torch.save(model, MODELS_DIR / "test_full.pt")
+    # torch.save(model.state_dict(), MODELS_DIR / "ensemble_linear_1.pt")
 
     total_end = time.time()
     print(f"All years processed in {total_end - total_start:.2f}s")
