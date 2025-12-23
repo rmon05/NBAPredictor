@@ -11,6 +11,10 @@ nba_to_stathead_abbrv = {
 }
 
 def scrape(browser_context):
+    # Clear existing games
+    for prev_game_file in RAW_OUTPUT_DIR.iterdir():
+        prev_game_file.unlink()
+
     page = browser_context.new_page()
     page.goto("https://www.nba.com/players/todays-lineups")
 
@@ -27,6 +31,7 @@ def scrape(browser_context):
         away_stathead = nba_to_stathead_abbrv[away_nba] if away_nba in nba_to_stathead_abbrv.keys() else away_nba
         home_stathead = nba_to_stathead_abbrv[home_nba] if home_nba in nba_to_stathead_abbrv.keys() else home_nba
         
+        # Write one file per game
         lineups_file = f"{away_stathead}_AT_{home_stathead}.txt"
         with open(RAW_OUTPUT_DIR / lineups_file, "w", encoding="utf-8") as f:
             f.write(away_stathead + "\n")

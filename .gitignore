@@ -4,6 +4,7 @@
 legacy/
 venv/
 data/
+data_airflow/
 raw/
 __pycache__/
 

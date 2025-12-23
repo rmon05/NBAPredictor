@@ -34,13 +34,6 @@ class PredictionInputGenerator:
         self.X_list_starter = []
         self.X_list_seq_team = []
         self.X_list_seq_opp = []
-
-        # self.X_static = np.array([])
-        # self.X_metric = np.array([])
-        # self.X_starter = np.array([])
-        # self.X_seq_team = np.array([])
-        # self.X_seq_opp = np.array([])
-        # self.y = np.array([])
     
     # Should take in a dataframe of the JOINED games for the current season
     def add_games(self, df_games):
@@ -390,23 +383,6 @@ class PredictionInputGenerator:
         X_seq_opp_tensor = torch.tensor(X_seq_opp_scaled, dtype=torch.float32)
 
         return X_static_tensor, X_metric_tensor, X_starter_tensor, X_seq_team_tensor, X_seq_opp_tensor
-
-
-
-        # # seq TBD
-
-        # # feed to model to predict
-        # model = torch.load(MODELS_DIR / "test_full.pt")
-        # model.eval()
-        # with torch.no_grad():
-        #     y_pred = model(
-        #         home_static_tensor, home_metric_tensor, home_starter_tensor, home_seq_team_tensor, home_seq_opp_tensor
-        #     )
-
-        # # Scale up output with scaler_y
-        # # TBD
-        # # y_pred_reshaped = np.array()
-        # pass
 
 def is_same_player(player1: str, player2: str):
     # Identified special cases

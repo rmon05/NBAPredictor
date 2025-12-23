@@ -19,6 +19,8 @@ E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\joined
 
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\odds\raw_html_to_csv_parquet.py
 
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\nba\live\raw_extracted_to_csv.py
+
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\playwright\stathead_scraper.py
 
 # Updating requirements.lock
@@ -27,6 +29,9 @@ E:\NBAPredictor\venv\Scripts\python.exe -m pip freeze > requirements.lock
 
 # ML
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\rnn.py
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\predict.py
+
+
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\xgb.py
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\team_strengths.py
 

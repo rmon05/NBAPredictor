@@ -710,7 +710,6 @@ def main():
 
     # Save model
     torch.save(model, MODELS_DIR / "test_full.pt")
-    # torch.save(model.state_dict(), MODELS_DIR / "ensemble_linear_1.pt")
 
     total_end = time.time()
     print(f"All years processed in {total_end - total_start:.2f}s")

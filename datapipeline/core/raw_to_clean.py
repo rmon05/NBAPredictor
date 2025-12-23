@@ -2,8 +2,9 @@ import pandas as pd
 from pathlib import Path
 import time
 
-RAW_DIR = Path(__file__).parent / "../../data/raw/csv"
-PROCESSED_DIR = Path(__file__).parent / "../../data/raw/parquet"
+DATA_DIR = Path("E:/NBAPredictor/data")
+RAW_DIR = DATA_DIR / "raw/csv"
+PROCESSED_DIR = Path(__file__).parent / "../../data/clean"
 
 # List of expected CSV files per year
 CSV_FILES = ["boxScoreRaw.csv", "gamesRaw.csv"]
@@ -13,8 +14,6 @@ def ingest_year(year: int):
     start_year = time.time()
     
     year_raw_path = RAW_DIR / str(year)
-    year_processed_path = PROCESSED_DIR / str(year)
-    year_processed_path.mkdir(parents=True, exist_ok=True)
 
     for csv_file in CSV_FILES:
         csv_start = time.time()
@@ -28,19 +27,38 @@ def ingest_year(year: int):
         if "Date" in df.columns:
             df["Date"] = df["Date"].astype(str)
         
+        # Duplicate column, fix MP
+        if csv_file == "boxScoreRaw.csv" and "MP.1" in df.columns:
+            df = df.drop(columns=["MP"])
+            df = df.rename(columns={"MP.1": "MP"}) 
+            print(f"Replaced MP.1 for {csv_path}")
+        
         # Duplicate column, and fix PTS
         if csv_file == "gamesRaw.csv" and "PTS.2" in df.columns:
             df['PTS.1'], df['PTS.2'] = df['PTS.2'], df['PTS.1']
             df = df.drop(columns=["PTS.2"]) 
             print(f"Replaced PTS.1 with PTS.2 for {csv_path}")
-        
-        parquet_path = year_processed_path / f"{csv_file.replace('.csv', '.parquet')}"
 
-        df.to_parquet(parquet_path, index=False)
-        df.to_csv(csv_path, index=False)
+        # Fix Unnamed columns
+        # TBD: make this @ column less fragile
+        if csv_file == "boxScoreRaw.csv":
+            for i in range(len(df.columns)):
+                if "Unnamed" in df.columns[i]:
+                    df = df.rename(columns={df.columns[i]: f"Unnamed: {i}"})
+        
+        
+        output_parquet_path = PROCESSED_DIR / f"parquet/{year}"
+        output_csv_path = PROCESSED_DIR / f"csv/{year}"
+        output_parquet_path.mkdir(parents=True, exist_ok=True)
+        output_csv_path.mkdir(parents=True, exist_ok=True)
+
+        csv_file = csv_file.replace('Raw', 'Clean')
+        parquet_file = csv_file.replace('.csv', '.parquet')
+        df.to_parquet(output_parquet_path / parquet_file, index=False)
+        df.to_csv(output_csv_path / csv_file, index=False)
         
         csv_end = time.time()
-        print(f"Converted {csv_path} → {parquet_path} | Time: {csv_end - csv_start:.2f}s")
+        print(f"Converted in time: {csv_end - csv_start:.2f}s")
 
     end_year = time.time()
     print(f"Finished ingesting year {year} | Total time: {end_year - start_year:.2f}s\n")
