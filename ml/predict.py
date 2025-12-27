@@ -1,4 +1,5 @@
 import torch
+from datetime import date
 import pandas as pd
 import numpy as np
 from team_strengths import TeamStrengthCalculator
@@ -6,9 +7,14 @@ from pathlib import Path
 from joblib import load
 from unidecode import unidecode
 import json
+import psycopg2
 from rnn import HybridNN, GRU
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 SEASON = 2026
+DATE = date.today()
 SCALERS_DIR = Path("E:/NBAPredictor/ml/scalers")
 MODELS_DIR = Path("E:/NBAPredictor/ml/models")
 DATA_DIR = Path("E:/NBAPredictor/data")
@@ -16,6 +22,11 @@ RAW_DIR = DATA_DIR / "nba_live_extracted"
 BOX_SCORE_FILE = DATA_DIR / f"clean/parquet/{SEASON}/boxScoreClean.parquet"
 UNAVAILABLE_PID = "pid_not_available"
 GAMES_WINDOW_SZ = 10
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
 
 class PredictionInputGenerator:
     def __init__(self):
@@ -407,6 +418,8 @@ def is_same_player(player1: str, player2: str):
 
     return False
 
+def round_to_half_pts(x: float):
+    return round(x*2)/2
 
 def main():
     # Preload existing games up to this point
@@ -480,15 +493,38 @@ def main():
     # Scale y up
     y_pred_upscaled = scaler_y.inverse_transform(y_pred).tolist()
 
-    # output test
+    # output to DB test
     # WORKS?!
+    conn = psycopg2.connect(
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME
+    )
+    cur = conn.cursor()
     test_games = generator.games
     print(f"TOTAL games: {len(test_games)}")
     print(f"TOTAL predictions: {len(y_pred_upscaled)}")
     for i in range(len(test_games)):
-        print(f"Home: {test_games[i]['Home']}")
-        print(f"Away: {test_games[i]['Away']}")
-        print(f"Predicted Spread (Opposite Result): {-y_pred_upscaled[i][0]}")
+        home = test_games[i]['Home']
+        away = test_games[i]['Away']
+        spread_pred = round_to_half_pts(-y_pred_upscaled[i][0])
+        print(f"Home: {home}")
+        print(f"Away: {away}")
+        print(f"Game date: {DATE}")
+        print(f"Predicted Spread (Opposite Result): {spread_pred}\n")
+        cur.execute("""
+            INSERT INTO predictions (home, away, game_date, spread_prediction) 
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (home, game_date) 
+            DO UPDATE SET away = EXCLUDED.away, spread_prediction = EXCLUDED.spread_prediction;
+        """, 
+        (home, away, DATE, spread_pred))
+
+    conn.commit()
+    cur.close()
+    conn.close()
 
 if __name__ == "__main__":
     main()

@@ -11,7 +11,8 @@ load_dotenv()
 
 STATHEAD_USERNAME = os.getenv("STATHEAD_USERNAME")
 STATHEAD_PASSWORD = os.getenv("STATHEAD_PASSWORD")
-OUTPUT_DIR = Path(__file__).parent / "../../data/raw_scraped"
+DATA_DIR = Path("E:/NBAPredictor/data")
+OUTPUT_DIR = DATA_DIR / "raw"
 CURR_YEAR = 2026 # TBD this needs to be updated to not be hardcoded!
 
 def login(browser_context):

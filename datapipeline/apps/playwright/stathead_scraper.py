@@ -11,7 +11,8 @@ load_dotenv()
 
 STATHEAD_USERNAME = os.getenv("STATHEAD_USERNAME")
 STATHEAD_PASSWORD = os.getenv("STATHEAD_PASSWORD")
-OUTPUT_DIR = Path("/usr/local/airflow/data/raw")
+DATA_DIR = Path("/usr/local/airflow/data")
+OUTPUT_DIR = DATA_DIR / "raw"
 CURR_YEAR = 2026
 
 def login(browser_context):

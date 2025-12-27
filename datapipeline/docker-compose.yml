@@ -31,7 +31,7 @@ services:
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
       - ./airflow/config:/opt/airflow/config
-      - E:/NBAPredictor/data_airflow:/usr/local/airflow/data
+      - E:/NBAPredictor/data:/usr/local/airflow/data
     ports:
       - "8080:8080"
     command: api-server
@@ -51,7 +51,7 @@ services:
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
       - ./airflow/config:/opt/airflow/config
-      - E:/NBAPredictor/data_airflow:/usr/local/airflow/data
+      - E:/NBAPredictor/data:/usr/local/airflow/data
     command: scheduler
 
   airflow-dag-processor:
@@ -71,7 +71,7 @@ services:
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
       - ./airflow/config:/opt/airflow/config
-      - E:/NBAPredictor/data_airflow:/usr/local/airflow/data
+      - E:/NBAPredictor/data:/usr/local/airflow/data
     command: dag-processor
 
 volumes:

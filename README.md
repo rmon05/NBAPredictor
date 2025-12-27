@@ -11,9 +11,9 @@ E:\NBAPredictor\venv\Scripts\python.exe -m pip install -r requirements.txt
 <br>
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\killersports\raw_html_to_csv_parquet.py
 
-E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\raw_csv_to_parquet.py
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\raw_to_clean.py
 
-E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\raw_to_joined.py
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\clean_to_joined.py
 
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\core\joined_to_rolling.py
 
@@ -22,6 +22,8 @@ E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\odds\raw_ht
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\nba\live\raw_extracted_to_csv.py
 
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\playwright\stathead_scraper.py
+
+E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\playwright\nba_live_scraper.py
 
 # Updating requirements.lock
 E:\NBAPredictor\venv\Scripts\python.exe -m pip freeze > requirements.lock
