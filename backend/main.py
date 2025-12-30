@@ -1,6 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.models import GamePrediction, DashboardData
+from models import GamePrediction, DashboardData
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
 
 app = FastAPI()
 
@@ -16,35 +27,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-mock_games = [
-    GamePrediction(
-        id=1, date="Nov 30, 2025", team="Celtics", opponent="Cavaliers",
-        location="away", line=-7.5, prediction=-10.2, edge=2.7,
-        result="W", score="112 - 101", confidence="High"
-    ),
-    GamePrediction(
-        id=2, date="Nov 30, 2025", team="Lakers", opponent="Warriors",
-        location="home", line=3.5, prediction=1.0, edge=2.5,
-        result="L", score="105 - 110", confidence="Medium"
-    ),
-     GamePrediction(
-        id=3, date="Nov 29, 2025", team="Nuggets", opponent="Suns",
-        location="home", line=-3.5, prediction=-8.0, edge=4.5,
-        result="W", score="120 - 105", confidence="High"
-    ),
-]
-
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the NBA Predictor API"}
 
 @app.get("/api/dashboard", response_model=DashboardData)
 def get_dashboard_data():
+    # load games from DB
+    conn = psycopg2.connect(
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME
+    )
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("""
+        SELECT home, away, game_date, spread_prediction 
+        FROM predictions
+    """)
+    rows = cur.fetchall()
+
+    # Convert to GamePrediction objects
+    curr_games = [GamePrediction(**row) for row in rows]
+
     # Construct the response using our Pydantic model
     return DashboardData(
         summary=[
             {"label": "Model ROI", "value": "+12.4%", "trend": "up"},
             {"label": "Win Rate", "value": "58.2%", "trend": "up"},
         ],
-        games=mock_games
+        games=curr_games
     )

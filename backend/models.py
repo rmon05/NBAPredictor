@@ -1,18 +1,20 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, field_validator
+from datetime import date
 
 class GamePrediction(BaseModel):
-    id: int
-    date: str
-    team: str
-    opponent: str
-    location: str       # "home" or "away"
-    line: float
-    prediction: float
-    edge: float
-    result: Optional[str] = None  # "W", "L", or None if pending
-    score: Optional[str] = None
-    confidence: str     # "High", "Medium", "Low"
+    home: str
+    away: str
+    game_date: str
+    spread_prediction: float
+
+    @field_validator('game_date', mode='before')
+    @classmethod
+    def format_date_to_text(cls, v):
+        # If the DB returns a date object, format it
+        if isinstance(v, date):
+            return v.strftime("%b %d, %Y")
+        # If it's already a string, just return it
+        return v
 
 class DashboardData(BaseModel):
     summary: list[dict] # We can be stricter here later

@@ -7,7 +7,7 @@ python -m venv venv
 <br>
 .\venv\Scripts\activate
 <br>
-E:\NBAPredictor\venv\Scripts\python.exe -m pip install -r requirements.txt
+pip install -r requirements.txt
 <br>
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\datapipeline\killersports\raw_html_to_csv_parquet.py
 
@@ -36,6 +36,9 @@ E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\predict.py
 
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\xgb.py
 E:\NBAPredictor\venv\Scripts\python.exe E:\NBAPredictor\ml\team_strengths.py
+
+# Backend
+uvicorn main:app --reload 
 
 # Common Errors
 OSError: [WinError 1114] A dynamic link library (DLL) initialization routine failed. Error loading "E:\NBAPredictor\venv\Lib\site-packages\torch\lib\c10.dll" or one of its dependencies.
