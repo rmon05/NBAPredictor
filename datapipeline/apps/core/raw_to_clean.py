@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 import time
 
-DATA_DIR = Path("E:/NBAPredictor/data")
+DATA_DIR = Path("/usr/local/airflow/data")
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "clean"
 
@@ -65,7 +65,8 @@ def ingest_year(year: int):
 
 
 def main():
-    years = [year for year in range(2015, 2027)]
+    # years = [year for year in range(2015, 2027)]
+    years = [2026]
     total_start = time.time()
     for year in years:
         ingest_year(year)

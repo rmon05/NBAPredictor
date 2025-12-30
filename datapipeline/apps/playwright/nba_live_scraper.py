@@ -49,21 +49,11 @@ def scrape(browser_context):
             for j in range(5):
                 f.write(home_lineup.nth(j).text_content() + "\n")
 
-
-
-
-   
-        
-
-
-
-
-
 def main():
     scraper = PWScraper()
     scraper.add_task(scrape)
     # Set headless to false for debugging, true for production
-    scraper.scrape(headless=False) 
+    scraper.scrape(headless=True) 
 
 if __name__ == "__main__":
     main()

@@ -5,8 +5,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 from dotenv import load_dotenv
+from datetime import date
 
 load_dotenv()
+DATE = date.today()
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST")
@@ -49,7 +51,8 @@ def get_dashboard_data():
     rows = cur.fetchall()
 
     # Convert to GamePrediction objects
-    curr_games = [GamePrediction(**row) for row in rows]
+    # Only return current day's games for now
+    curr_games = [GamePrediction(**row) for row in rows if row["game_date"]==DATE]
 
     # Construct the response using our Pydantic model
     return DashboardData(

@@ -1,6 +1,6 @@
-pandas>=2.2,<3.0
+pandas==2.3.3
 numpy>=1.26,<2.0
-scikit-learn>=1.5,<2.0
+scikit-learn==1.7.2
 apache-airflow==3.0.*
 matplotlib>=3.9,<4.0
 pathlib==1.0.1
@@ -11,3 +11,5 @@ beautifulsoup4==4.14.2
 playwright==1.56.0
 unidecode==1.4.0
 psycopg2==2.9.11
+pyarrow==22.0.0
+torch==2.9.1
