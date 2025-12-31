@@ -35,13 +35,13 @@ function Layout() {
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-200 flex">
         
         {/* SIDEBAR (Now Retractable) */}
-        <aside 
+        {/* <aside 
           className={`fixed left-0 top-0 h-full bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 transition-all duration-300 ease-in-out z-20 flex flex-col ${
             isCollapsed ? 'w-20' : 'w-64'
           }`}
-        >
+        > */}
           {/* LOGO AREA */}
-          <div className={`h-20 flex items-center ${isCollapsed ? 'justify-center' : 'px-6 gap-3'}`}>
+          {/* <div className={`h-20 flex items-center ${isCollapsed ? 'justify-center' : 'px-6 gap-3'}`}>
             <div className="h-8 w-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-xl text-white shrink-0">
               P
             </div>
@@ -50,37 +50,35 @@ function Layout() {
                 NBAPredictor
               </span>
             )}
-          </div>
+          </div> */}
 
           {/* NAV ITEMS */}
-          <nav className="flex-1 px-4 space-y-2 py-4">
+          {/* <nav className="flex-1 px-4 space-y-2 py-4">
             <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" active={location.pathname === '/'} collapsed={isCollapsed} />
             <NavItem to="/performance" icon={<BarChart3 size={20} />} label="Model Performance" active={location.pathname === '/performance'} collapsed={isCollapsed} />
             <NavItem to="/query" icon={<Search size={20} />} label="Query Tool" active={location.pathname === '/query'} collapsed={isCollapsed} />
             <NavItem to="/settings" icon={<Settings size={20} />} label="Settings" active={location.pathname === '/settings'} collapsed={isCollapsed} />
-          </nav>
+          </nav> */}
 
           {/* COLLAPSE TOGGLE BUTTON */}
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+          {/* <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
              <button 
                onClick={() => setIsCollapsed(!isCollapsed)}
                className={`p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-all ${isCollapsed ? 'mx-auto' : ''}`}
              >
                 {isCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
              </button>
-          </div>
-        </aside>
+          </div> */}
+        {/* </aside> */}
 
         {/* MAIN CONTENT AREA */}
         <div 
-          className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
-            isCollapsed ? 'ml-20' : 'md:ml-64' /* Adjust margin based on sidebar width */
-          }`}
+          className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out`}
         >
           <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl sticky top-0 z-10 flex items-center justify-between px-8">
               <div className="flex items-center gap-6">
-                  <span className="text-zinc-500 dark:text-zinc-400 text-sm hidden sm:block">Season 2024-2025</span>
-                  <div className="h-4 w-[1px] bg-zinc-300 dark:bg-zinc-700 hidden sm:block"></div>
+                  <span className="text-zinc-500 dark:text-zinc-400 text-sm hidden sm:block">Season 2025-2026</span>
+                  {/* <div className="h-4 w-[1px] bg-zinc-300 dark:bg-zinc-700 hidden sm:block"></div>
                   <div className="flex gap-4">
                       {['NBA', 'NFL', 'MLB'].map(league => (
                           <button key={league} onClick={() => setActiveTab(league)}
@@ -88,13 +86,13 @@ function Layout() {
                               {league}
                           </button>
                       ))}
-                  </div>
+                  </div> */}
               </div>
               <div className="flex items-center gap-4">
                   <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-500 dark:text-zinc-400 transition">
                       {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
                   </button>
-                  <div className="h-8 w-8 bg-indigo-600 rounded-full flex items-center justify-center font-medium text-sm text-white">JD</div>
+                  {/* <div className="h-8 w-8 bg-indigo-600 rounded-full flex items-center justify-center font-medium text-sm text-white">JD</div> */}
               </div>
           </header>
 

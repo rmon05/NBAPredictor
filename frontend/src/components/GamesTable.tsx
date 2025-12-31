@@ -27,7 +27,7 @@ const GamesTable = ({ games }: GamesTableProps) => {
           <TableRow className="bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800">
             <TableHead className="w-[140px] text-zinc-500 dark:text-zinc-400 font-semibold">Date</TableHead>
             <TableHead className="text-zinc-500 dark:text-zinc-400 font-semibold">Matchup</TableHead>
-            <TableHead className="text-center text-zinc-500 dark:text-zinc-400 font-semibold">Spread Prediction</TableHead>
+            <TableHead className="text-center text-zinc-500 dark:text-zinc-400 font-semibold">Spread Prediction (Home Team)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
