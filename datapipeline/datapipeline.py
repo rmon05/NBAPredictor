@@ -3,10 +3,10 @@ import sys
 
 PYTHON_EXE = sys.executable
 STEPS = [
-    "playwright/stathead_scraper.py",
+    # "playwright/stathead_scraper.py",
     "playwright/nba_live_scraper.py",
     "core/raw_to_clean.py",
-    "core/clean_to_joined.py"
+    "core/clean_to_joined.py",
     "../ml/predict.py"
 ]
 

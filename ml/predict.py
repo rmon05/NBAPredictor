@@ -399,7 +399,9 @@ def is_same_player(player1: str, player2: str):
     # Identified special cases
     player_name_exceptions = {
         "Jimmy Butler" : "Jimmy Butler III",
-        "Egor Diomin" : "Egor Demin"
+        "Egor Diomin" : "Egor Demin",
+        "Tristan da Silva" : "Tristan Da Silva",
+        "GG Jackson" : "GG Jackson II"
     }
 
     # Strip periods and special chars so that names like A.J. and AJ are the same
